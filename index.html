@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bedside Clinical Decision Support v2.0</title>
+<title>AcuteDesk — Bedside Clinical Decision Support</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='10' fill='%230056B3'/><path d='M14 32 L24 32 L28 22 L36 42 L40 32 L50 32' stroke='white' stroke-width='4.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 <style>
 :root {
   --bg: #ffffff;
@@ -114,6 +115,19 @@ button { font-family: inherit; }
 .numeric-input:focus { outline: none; border-color: var(--accent); }
 .numeric-row .unit { font-size: 14px; color: var(--text-mute); font-weight: 600; }
 
+.score-calc-link { background: none; border: none; color: var(--accent); font-family: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; padding: 6px 0; margin: 4px 0 10px; text-align: left; display: block; }
+.score-calc-link:hover { color: #003d7a; }
+.score-calc-block { border: 1.5px solid var(--border); border-radius: 6px; padding: 12px; margin-top: 4px; background: #fafbfc; }
+.score-calc-header { background: var(--accent); color: #fff; margin: -12px -12px 12px; padding: 10px 14px; border-radius: 5px 5px 0 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.score-calc-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.score-calc-total { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.score-calc-group { margin: 10px 0; }
+.score-calc-comp-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.score-calc-options { display: flex; flex-direction: column; gap: 4px; }
+.score-calc-opt { text-align: left; padding: 8px 12px; border: 1.5px solid var(--border); background: #fff; border-radius: 4px; font-family: inherit; font-size: 14px; cursor: pointer; color: var(--text); min-height: 36px; }
+.score-calc-opt:hover { border-color: var(--accent); }
+.score-calc-opt.selected { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+
 .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 
 .rec-card { border: 1.5px solid var(--accent); border-radius: 6px; overflow: hidden; margin-top: 8px; }
@@ -183,8 +197,8 @@ button { font-family: inherit; }
 <div class="app">
   <header class="header">
     <div class="header-title">
-      <h1 id="appTitle">BEDSIDE CLINICAL DECISION SUPPORT</h1>
-      <div class="subtitle" id="appSubtitle">Evidence-based acute care · v2.0</div>
+      <h1 id="appTitle">AcuteDesk</h1>
+      <div class="subtitle" id="appSubtitle">Bedside clinical decision support · v3.0</div>
     </div>
     <div class="header-actions">
       <div class="lang-toggle" role="group" aria-label="Language">
@@ -234,8 +248,8 @@ function tx(val) {
  * UI STRINGS (chrome)
  * =========================================================== */
 const UI = {
-  appTitle: { en: "BEDSIDE CLINICAL DECISION SUPPORT", id: "PENDUKUNG KEPUTUSAN KLINIS BEDSIDE" },
-  subtitle: { en: "Evidence-based acute care · v2.0", id: "Layanan akut berbasis bukti · v2.0" },
+  appTitle: { en: "AcuteDesk", id: "AcuteDesk" },
+  subtitle: { en: "Bedside clinical decision support · v3.0", id: "Pendukung keputusan klinis bedside · v3.0" },
   disclaimer: { en: "⚠ For clinical decision support only. Always apply clinical judgment.", id: "⚠ Hanya alat bantu keputusan klinis. Selalu gunakan pertimbangan klinis." },
   footerLine1: { en: "Guideline sources: ESC · ACC/AHA · AHA ACLS · Surviving Sepsis Campaign · SCAI", id: "Sumber pedoman: ESC · ACC/AHA · AHA ACLS · Surviving Sepsis Campaign · SCAI" },
   footerLine2: { en: "Always verify drug doses against local protocols and patient-specific factors.", id: "Selalu verifikasi dosis obat sesuai protokol lokal dan faktor pasien." },
@@ -282,7 +296,12 @@ const UI = {
   ciSummaryHeader: { en: "Contraindications acknowledged — pathway adjusted:", id: "Kontraindikasi tercatat — alur disesuaikan:" },
   none: { en: "None", id: "Tidak ada" },
   yes: { en: "Yes", id: "Ya" },
-  no: { en: "No", id: "Tidak" }
+  no: { en: "No", id: "Tidak" },
+  calculateLink: { en: "Calculate score →", id: "Hitung skor →" },
+  calculatorBack: { en: "← Use total score instead", id: "← Gunakan skor total saja" },
+  calculatorTotal: { en: "Total score", id: "Skor total" },
+  calculatorUse: { en: "Use this score →", id: "Gunakan skor ini →" },
+  calculatorTitle: { en: "Score calculator", id: "Kalkulator skor" }
 };
 
 function ui(key, replacements) {
@@ -2027,7 +2046,975 @@ bradycardia: {
       guideline: "AHA ACLS Adult Bradycardia Algorithm 2020; ACC/AHA/HRS Bradycardia & Conduction Delay 2018"
     };
   }
-}
+},
+
+
+/* ---------------------- ACUTE ASTHMA EXACERBATION ---------------------- */
+asthma: {
+  id: "asthma",
+  label: { en: "Acute Asthma Exacerbation", id: "Eksaserbasi Asma Akut" },
+  icon: "💨",
+  guideline: "GINA 2024 · ERS/ATS Severe Asthma 2020 · BTS/SIGN 2019",
+  standalone: true,
+  steps: [
+    {
+      id: "severity",
+      question: { en: "Severity of asthma exacerbation?", id: "Derajat eksaserbasi asma?" },
+      hint: { en: "Based on speech, RR, HR, SpO₂, PEF, and accessory muscle use.", id: "Berdasarkan bicara, RR, HR, SpO₂, PEF, dan penggunaan otot bantu napas." },
+      type: "single-select",
+      options: [
+        { value: "mild", label: { en: "Mild–Moderate: talks in phrases, prefers sitting, RR ↑, HR 100–120, SpO₂ 90–95% RA, PEF >50% predicted", id: "Ringan–Sedang: bicara frasa, suka duduk, RR ↑, HR 100–120, SpO₂ 90–95% udara ruang, PEF >50% prediksi" } },
+        { value: "severe", label: { en: "Severe: talks in words, hunched forward, agitated, RR >30, HR >120, SpO₂ <90% RA, PEF ≤50% predicted, accessory muscles in use", id: "Berat: bicara kata, condong ke depan, agitasi, RR >30, HR >120, SpO₂ <90% udara ruang, PEF ≤50% prediksi, otot bantu aktif" } },
+        { value: "life_threat", label: { en: "Life-threatening: drowsy/confused, silent chest, cyanosis, bradycardia/arrhythmia, hypotension, exhaustion, SpO₂ <90% on O₂, PEF <33%", id: "Mengancam nyawa: mengantuk/bingung, silent chest, sianosis, bradikardia/aritmia, hipotensi, kelelahan, SpO₂ <90% dengan O₂, PEF <33%" } },
+        { value: "near_fatal", label: { en: "Near-fatal: rising PaCO₂, requiring mechanical ventilation", id: "Hampir fatal: PaCO₂ meningkat, butuh ventilasi mekanik" } }
+      ]
+    },
+    {
+      id: "spo2",
+      question: { en: "SpO₂ on room air or current oxygen?", id: "SpO₂ pada udara ruang atau oksigen saat ini?" },
+      type: "numeric",
+      unit: "%"
+    },
+    {
+      id: "risk_factors",
+      question: { en: "Risk factors for asthma-related death (select all that apply)?", id: "Faktor risiko kematian terkait asma (pilih semua yang sesuai)?" },
+      hint: { en: "These shift management to a lower threshold for aggressive treatment and ICU admission.", id: "Faktor ini menurunkan ambang batas untuk terapi agresif dan admisi ICU." },
+      type: "multi-select",
+      options: [
+        { value: "prior_icu", label: { en: "Prior ICU admission / intubation for asthma", id: "Riwayat admisi ICU / intubasi karena asma" } },
+        { value: "ed_hosp_year", label: { en: "ED visit or hospitalization for asthma in past year", id: "Kunjungan IGD atau rawat inap karena asma dalam 1 tahun terakhir" } },
+        { value: "oral_steroid", label: { en: "Currently using or recently stopped oral corticosteroids", id: "Sedang atau baru saja menghentikan kortikosteroid oral" } },
+        { value: "no_ics", label: { en: "Not currently on inhaled corticosteroid (ICS) — major modifiable risk", id: "Tidak menggunakan kortikosteroid inhalasi (ICS) — faktor risiko utama yang dapat dimodifikasi" } },
+        { value: "saba_overuse", label: { en: "SABA over-reliance (≥1 canister/month or >3 canisters/year)", id: "Penggunaan SABA berlebihan (≥1 kanister/bulan atau >3 kanister/tahun)" } },
+        { value: "poor_adherence", label: { en: "Poor adherence / no written action plan", id: "Kepatuhan rendah / tidak ada action plan tertulis" } },
+        { value: "psych_social", label: { en: "Psychiatric or psychosocial problems, food allergy", id: "Masalah psikiatri atau psikososial, alergi makanan" } },
+        NONE_OPT
+      ]
+    },
+    {
+      id: "response",
+      question: { en: "Response to initial bronchodilator therapy (after 1 h of treatment)?", id: "Respons terhadap bronkodilator awal (setelah 1 jam terapi)?" },
+      hint: { en: "Drives disposition decision: good response → discharge consideration; poor → admit; deteriorating → ICU.", id: "Menentukan disposisi: respons baik → pertimbangkan pulang; buruk → rawat; memburuk → ICU." },
+      type: "single-select",
+      options: [
+        { value: "good", label: { en: "Good — symptoms resolving, PEF >70% predicted, SpO₂ >94% RA", id: "Baik — gejala mereda, PEF >70% prediksi, SpO₂ >94% udara ruang" } },
+        { value: "incomplete", label: { en: "Incomplete — partial improvement, PEF 50–70%, persistent symptoms", id: "Tidak lengkap — perbaikan parsial, PEF 50–70%, gejala menetap" } },
+        { value: "poor", label: { en: "Poor — minimal change, PEF <50%, ongoing distress", id: "Buruk — perubahan minimal, PEF <50%, distres berlanjut" } },
+        { value: "deteriorating", label: { en: "Deteriorating — worsening, exhaustion, rising PaCO₂, ↓ consciousness", id: "Memburuk — perburukan, kelelahan, PaCO₂ meningkat, ↓ kesadaran" } }
+      ]
+    }
+  ],
+  getRecommendation: function(a, ctx) {
+    const risks = Array.isArray(a.risk_factors) ? a.risk_factors : [];
+    const severe = a.severity === "severe" || a.severity === "life_threat" || a.severity === "near_fatal";
+    const lifeThreat = a.severity === "life_threat" || a.severity === "near_fatal";
+
+    const flags = [];
+    if (a.severity === "near_fatal") flags.push({ en: "NEAR-FATAL ASTHMA — rising PaCO₂ + exhaustion mandates immediate intubation. Difficult airway expected. Call ICU and anesthesia NOW.", id: "ASMA HAMPIR FATAL — PaCO₂ meningkat + kelelahan mengharuskan intubasi segera. Jalan napas sulit. Hubungi ICU dan anestesi SEKARANG." });
+    if (a.severity === "life_threat") flags.push({ en: "LIFE-THREATENING ASTHMA — silent chest, drowsiness, bradycardia, exhaustion. ICU admission required. Prepare for intubation; sedation choice CRITICAL — ketamine preferred.", id: "ASMA MENGANCAM NYAWA — silent chest, mengantuk, bradikardia, kelelahan. Admisi ICU diperlukan. Siapkan intubasi; pilihan sedasi PENTING — ketamin lebih disukai." });
+    if (risks.includes("prior_icu")) flags.push({ en: "Prior ICU/intubation for asthma — high mortality risk. Lower threshold for aggressive Rx and ICU admission.", id: "Riwayat ICU/intubasi untuk asma — risiko mortalitas tinggi. Ambang lebih rendah untuk terapi agresif dan admisi ICU." });
+    if (risks.includes("saba_overuse")) flags.push({ en: "SABA over-reliance — independent mortality risk factor. ICS-formoterol MART regimen on discharge is the priority intervention to reduce future exacerbations.", id: "Penggunaan SABA berlebihan — faktor risiko mortalitas independen. Regimen MART ICS-formoterol saat pulang adalah intervensi prioritas untuk mengurangi eksaserbasi mendatang." });
+    if (risks.includes("no_ics")) flags.push({ en: "Not on ICS — single greatest modifiable risk factor. Initiate ICS-containing controller BEFORE discharge (per GINA 2024, no more SABA-only therapy).", id: "Tidak ada ICS — faktor risiko yang dapat dimodifikasi terbesar. Mulai pengontrol berisi ICS SEBELUM pulang (per GINA 2024, tidak boleh terapi SABA saja)." });
+    if (a.response === "deteriorating") flags.push({ en: "DETERIORATING despite initial therapy — escalate immediately: continuous nebulization, IV magnesium, prepare for HFNC/NIV/intubation. ICU bed now.", id: "MEMBURUK meski terapi awal — eskalasi segera: nebulisasi kontinu, magnesium IV, siapkan HFNC/NIV/intubasi. Tempat ICU sekarang." });
+
+    let dx;
+    if (a.severity === "near_fatal") dx = { en: "Near-Fatal Asthma Exacerbation", id: "Eksaserbasi Asma Hampir Fatal" };
+    else if (a.severity === "life_threat") dx = { en: "Life-Threatening Asthma Exacerbation", id: "Eksaserbasi Asma Mengancam Nyawa" };
+    else if (a.severity === "severe") dx = { en: "Severe Asthma Exacerbation", id: "Eksaserbasi Asma Berat" };
+    else dx = { en: "Mild–Moderate Asthma Exacerbation", id: "Eksaserbasi Asma Ringan–Sedang" };
+
+    const sub = { en: "Reversible airflow obstruction with bronchospasm, mucosal inflammation, mucus plugging", id: "Obstruksi aliran udara reversibel dengan bronkospasme, inflamasi mukosa, sumbatan mukus" };
+
+    const immediate = [
+      { en: "Sit patient upright; calm reassurance; do not force supine", id: "Posisikan duduk tegak; tenangkan; jangan paksa berbaring" },
+      { en: "Continuous SpO₂, cardiac monitor, NIBP q5–15 min", id: "SpO₂ kontinu, monitor jantung, NIBP q5–15 menit" },
+      { en: "Controlled oxygen to target SpO₂ 93–95% (avoid hyperoxia — risk of CO₂ retention in severe attacks)", id: "Oksigen terkontrol target SpO₂ 93–95% (hindari hiperoksia — risiko retensi CO₂ pada serangan berat)" },
+      { en: "PEF before and after initial bronchodilator (if able)", id: "PEF sebelum dan sesudah bronkodilator awal (jika mampu)" },
+      lifeThreat ? { en: "Call ICU & anesthesia. Prepare difficult airway kit, ketamine, rocuronium, video laryngoscope.", id: "Hubungi ICU & anestesi. Siapkan difficult airway kit, ketamin, rokuronium, video laringoskop." } : null,
+      a.response === "deteriorating" ? { en: "Consider HFNC or NIV trial (CPAP/BiPAP) ONLY if monitored and intubation immediately available — NIV in asthma is controversial. Do not delay intubation for NIV trial.", id: "Pertimbangkan HFNC atau uji NIV (CPAP/BiPAP) HANYA jika dimonitor dan intubasi segera tersedia — NIV pada asma kontroversial. Jangan tunda intubasi untuk uji NIV." } : null
+    ].filter(Boolean);
+
+    const pharm = [];
+    pharm.push({ name: "Salbutamol (SABA)", dose: severe ? "5 mg nebulized q20 min × 3 doses (or continuous nebulization 10–15 mg/h); add ipratropium" : "2.5–5 mg nebulized q20 min × 3 doses, OR pMDI 4–10 puffs via spacer q20 min × 3 (equally effective in mild–moderate)", route: "Nebulized (O₂-driven if available) or pMDI + spacer", timing: { en: "First-line bronchodilator. Continuous nebulization is preferred over repeat bolus in severe attack.", id: "Bronkodilator lini pertama. Nebulisasi kontinu lebih disukai daripada bolus berulang pada serangan berat." }, ci: { en: "Watch for hypokalemia, tachyarrhythmia, lactic acidosis with high cumulative dose", id: "Waspadai hipokalemia, takiaritmia, asidosis laktat dengan dosis kumulatif tinggi" } });
+    if (severe) {
+      pharm.push({ name: "Ipratropium bromide", dose: "500 mcg nebulized q20 min × 3 doses (combine with salbutamol)", route: "Nebulized", timing: { en: "Add-on in moderate–severe exacerbations; reduces admission rate (Cochrane).", id: "Tambahan pada eksaserbasi sedang–berat; menurunkan tingkat admisi (Cochrane)." }, ci: { en: "Caution in glaucoma (eye protection during nebulization), prostatic hyperplasia", id: "Hati-hati pada glaukoma (lindungi mata saat nebulisasi), hiperplasia prostat" } });
+    }
+    pharm.push({ name: "Systemic corticosteroid", dose: "Prednisolone 40–50 mg PO daily × 5–7 days OR Methylprednisolone 40–80 mg IV daily OR Hydrocortisone 100 mg IV q6h", route: "PO (preferred if tolerated) or IV", timing: { en: "Within 1 h of presentation — equivalent efficacy oral vs IV. No taper needed if course ≤14 days.", id: "Dalam 1 jam presentasi — efikasi oral setara IV. Tidak perlu tapering jika kursus ≤14 hari." }, ci: { en: "Active untreated systemic infection (relative); diabetes (monitor glucose)", id: "Infeksi sistemik aktif belum terobati (relatif); diabetes (monitor glukosa)" } });
+    if (severe || a.response === "poor" || a.response === "deteriorating") {
+      pharm.push({ name: "Magnesium sulfate", dose: "2 g IV over 20 min (children: 40 mg/kg, max 2 g)", route: "IV", timing: { en: "Single dose for severe exacerbation NOT responding to first-line therapy within 1 h. Bronchodilator + anti-inflammatory effects.", id: "Dosis tunggal untuk eksaserbasi berat yang TIDAK respons terhadap terapi lini pertama dalam 1 jam. Efek bronkodilator + antiinflamasi." }, ci: { en: "Severe renal impairment (relative — dose reduce), bradycardia", id: "Gangguan ginjal berat (relatif — kurangi dosis), bradikardia" } });
+    }
+    if (lifeThreat || a.response === "deteriorating") {
+      pharm.push({ name: "IV salbutamol (refractory cases)", dose: "Load 250 mcg IV over 10 min, then infusion 5–20 mcg/min titrate", route: "IV infusion", timing: { en: "Last-line bronchodilator before intubation. Requires cardiac monitoring; high risk of tachyarrhythmia, lactic acidosis, hypokalemia.", id: "Bronkodilator lini terakhir sebelum intubasi. Memerlukan monitor jantung; risiko tinggi takiaritmia, asidosis laktat, hipokalemia." }, ci: { en: "Tachyarrhythmia, hypokalemia (correct first)", id: "Takiaritmia, hipokalemia (koreksi dulu)" } });
+      pharm.push({ name: "Ketamine (intubation induction & infusion)", dose: "Induction 1–2 mg/kg IV; infusion 0.5–2 mg/kg/h post-intubation", route: "IV", timing: { en: "Preferred induction agent in life-threatening asthma — direct bronchodilator effect, preserves hemodynamics.", id: "Agen induksi pilihan pada asma mengancam nyawa — efek bronkodilator langsung, jaga hemodinamik." }, ci: { en: "Severe HTN, raised ICP, ischemic heart disease (relative)", id: "HTN berat, peningkatan TIK, penyakit jantung iskemik (relatif)" } });
+    }
+    pharm.push({ name: "AVOID — Sedatives without ventilation", dose: "—", route: "—", timing: { en: "Benzodiazepines, opioids → respiratory depression masking deterioration. Ketamine ONLY when ready to intubate.", id: "Benzodiazepin, opioid → depresi napas menutupi perburukan. Ketamin HANYA saat siap intubasi." }, ci: { en: "Spontaneously breathing asthma without monitoring", id: "Asma bernapas spontan tanpa monitor" } });
+    pharm.push({ name: "AVOID — β-blockers", dose: "—", route: "—", timing: { en: "Including topical (eye drops) — can precipitate severe bronchospasm.", id: "Termasuk topikal (tetes mata) — dapat memicu bronkospasme berat." }, ci: { en: "Active asthma exacerbation", id: "Eksaserbasi asma aktif" } });
+    pharm.push({ name: "AVOID — Mucolytics, sedation, routine antibiotics", dose: "—", route: "—", timing: { en: "Antibiotics only if pneumonia / sinusitis evidence (fever, purulent sputum, focal CXR). Most exacerbations are viral.", id: "Antibiotik hanya jika ada bukti pneumonia / sinusitis (demam, sputum purulen, CXR fokal). Sebagian besar eksaserbasi viral." }, ci: "" });
+
+    pharm.push({ name: "Discharge regimen (GINA 2024)", dose: "ICS-formoterol MART (e.g., budesonide-formoterol 200/6 mcg 1 puff BID + as-needed for symptoms). NEVER SABA-only.", route: "Inhaled", timing: { en: "Critical: every asthma patient discharged from ED must have ICS-containing controller. Provide written asthma action plan and PEF meter.", id: "Penting: setiap pasien asma yang pulang dari IGD harus punya pengontrol berisi ICS. Berikan action plan tertulis dan PEF meter." }, ci: "" });
+
+    const investigations = {
+      stat: [
+        { en: "ABG if SpO₂ <92%, no improvement, life-threatening features (looking for ↑PaCO₂)", id: "AGD jika SpO₂ <92%, tidak membaik, fitur mengancam nyawa (cari ↑PaCO₂)" },
+        { en: "CXR — only if suspected pneumothorax, pneumonia, atelectasis (not routine)", id: "Foto toraks — hanya jika curiga pneumotoraks, pneumonia, atelektasis (tidak rutin)" },
+        { en: "Electrolytes (K — high-dose β2 agonist causes hypokalemia)", id: "Elektrolit (K — agonis β2 dosis tinggi menyebabkan hipokalemia)" },
+        { en: "Glucose (steroid effect)", id: "Glukosa (efek steroid)" },
+        { en: "CBC if infection suspected", id: "CBC jika curiga infeksi" }
+      ],
+      routine: [
+        { en: "Spirometry before discharge if feasible (FEV₁/PEF)", id: "Spirometri sebelum pulang jika memungkinkan (FEV₁/PEF)" },
+        { en: "Asthma control assessment (ACT/ACQ)", id: "Penilaian kontrol asma (ACT/ACQ)" },
+        { en: "Trigger identification, allergen testing if indicated", id: "Identifikasi pemicu, tes alergen jika ada indikasi" },
+        { en: "Inhaler technique review (mandatory before discharge)", id: "Tinjau teknik inhaler (wajib sebelum pulang)" },
+        { en: "Specialist referral if frequent exacerbations or step-up failure", id: "Rujuk spesialis jika eksaserbasi sering atau gagal step-up" }
+      ]
+    };
+
+    let dispo;
+    if (a.severity === "near_fatal" || a.response === "deteriorating") dispo = { en: "ICU — intubation/ventilation likely", id: "ICU — kemungkinan intubasi/ventilasi" };
+    else if (a.severity === "life_threat" || a.response === "poor") dispo = { en: "ICU / HDU", id: "ICU / HDU" };
+    else if (a.severity === "severe" || a.response === "incomplete") dispo = { en: "Admit respiratory ward with telemetry; reassess in 1–2 h", id: "Rawat bangsal respirasi dengan telemetri; nilai ulang dalam 1–2 jam" };
+    else if (a.response === "good") dispo = { en: "Discharge home with controller therapy, written action plan, follow-up <1 week — provided no high-risk features", id: "Pulang dengan terapi pengontrol, action plan tertulis, follow-up <1 minggu — bila tidak ada fitur risiko tinggi" };
+    else dispo = { en: "Observation 4 h; reassess for discharge vs admit", id: "Observasi 4 jam; nilai ulang pulang vs rawat" };
+
+    return {
+      diagnosis: dx, subtitle: sub, cautions: flags,
+      immediate, pharmacology: pharm,
+      investigations, disposition: dispo,
+      guideline: "GINA 2024 (Global Initiative for Asthma); ERS/ATS Severe Asthma 2020; BTS/SIGN UK 2019"
+    };
+  }
+},
+
+/* ---------------------- ACUTE COPD EXACERBATION ---------------------- */
+copd: {
+  id: "copd",
+  label: { en: "Acute COPD Exacerbation (AECOPD)", id: "Eksaserbasi PPOK Akut" },
+  icon: "🫁",
+  guideline: "GOLD 2024 · ERS/ATS COPD Exacerbation 2017",
+  standalone: true,
+  steps: [
+    {
+      id: "severity",
+      question: { en: "Rome 2018 / GOLD severity of AECOPD?", id: "Derajat AECOPD per Rome 2018 / GOLD?" },
+      hint: { en: "Mild: SABA only suffices. Moderate: SABA + antibiotics ± steroid. Severe: ED visit or hospitalization, often respiratory failure.", id: "Ringan: SABA saja cukup. Sedang: SABA + antibiotik ± steroid. Berat: kunjungan IGD atau rawat inap, sering gagal napas." },
+      type: "single-select",
+      options: [
+        { value: "mild", label: { en: "Mild — treated with SABA alone, no systemic features", id: "Ringan — terapi SABA saja, tanpa gejala sistemik" } },
+        { value: "moderate", label: { en: "Moderate — SABA + oral corticosteroid ± antibiotic, no respiratory failure", id: "Sedang — SABA + kortikosteroid oral ± antibiotik, tanpa gagal napas" } },
+        { value: "severe_no_failure", label: { en: "Severe (Rome) — hospitalized but NO acute respiratory failure (HR <95, RR <24, SpO₂ ≥92%, no ↑PaCO₂)", id: "Berat (Rome) — rawat inap TANPA gagal napas akut (HR <95, RR <24, SpO₂ ≥92%, tanpa ↑PaCO₂)" } },
+        { value: "severe_ARF", label: { en: "Severe with ARF — RR ≥24, ↑accessory muscles, SpO₂ <92%, PaO₂/FiO₂ <300, pH ≥7.35 (non-life-threatening hypercapnia possible)", id: "Berat dengan ARF — RR ≥24, ↑otot bantu, SpO₂ <92%, PaO₂/FiO₂ <300, pH ≥7.35 (hiperkapnia non-mengancam mungkin)" } },
+        { value: "life_threat", label: { en: "Life-threatening — ARF with pH <7.35 (acute respiratory acidosis) ± ↓consciousness", id: "Mengancam nyawa — ARF dengan pH <7.35 (asidosis respiratorik akut) ± ↓kesadaran" } }
+      ]
+    },
+    {
+      id: "trigger",
+      question: { en: "Most likely trigger?", id: "Pemicu yang paling mungkin?" },
+      hint: { en: "Anthonisen criteria for antibiotic decision: ↑sputum volume + ↑sputum purulence + ↑dyspnea (need ≥2 of 3, ideally including purulence).", id: "Kriteria Anthonisen untuk keputusan antibiotik: ↑volume sputum + ↑purulensi sputum + ↑sesak (perlu ≥2 dari 3, idealnya termasuk purulensi)." },
+      type: "single-select",
+      options: [
+        { value: "bacterial", label: { en: "Bacterial — ↑purulent sputum + ≥1 Anthonisen feature (antibiotic indicated)", id: "Bakterial — ↑sputum purulen + ≥1 fitur Anthonisen (antibiotik diindikasikan)" } },
+        { value: "viral", label: { en: "Viral / non-purulent — increased dyspnea ± wheeze, no purulence", id: "Viral / non-purulen — peningkatan sesak ± mengi, tanpa purulensi" } },
+        { value: "environmental", label: { en: "Environmental (pollution, allergen, cold air)", id: "Lingkungan (polusi, alergen, udara dingin)" } },
+        { value: "pe_concern", label: { en: "Pulmonary embolism suspicion (unexplained ↑dyspnea, hypoxia, hemoptysis)", id: "Dugaan emboli paru (sesak meningkat tidak jelas, hipoksia, hemoptisis)" } },
+        { value: "hf_concurrent", label: { en: "Concurrent HF decompensation", id: "Dekompensasi HF bersamaan" } },
+        { value: "unknown", label: { en: "Not identified", id: "Tidak teridentifikasi" } }
+      ]
+    },
+    {
+      id: "abg",
+      question: { en: "ABG result?", id: "Hasil AGD?" },
+      hint: { en: "Critical for NIV decision. Acute respiratory acidosis (pH <7.35 + PaCO₂ >45) = NIV indicated.", id: "Penting untuk keputusan NIV. Asidosis respiratorik akut (pH <7.35 + PaCO₂ >45) = NIV diindikasikan." },
+      type: "single-select",
+      options: [
+        { value: "normal", label: { en: "Normal / no respiratory failure", id: "Normal / tanpa gagal napas" } },
+        { value: "type1", label: { en: "Type 1 RF (PaO₂ <60, PaCO₂ normal)", id: "Gagal napas Tipe 1 (PaO₂ <60, PaCO₂ normal)" } },
+        { value: "type2_compensated", label: { en: "Type 2 RF — chronic compensated (↑PaCO₂, pH ≥7.35, ↑HCO₃)", id: "Gagal napas Tipe 2 — kronik terkompensasi (↑PaCO₂, pH ≥7.35, ↑HCO₃)" } },
+        { value: "type2_acute", label: { en: "Type 2 RF — acute on chronic (↑PaCO₂, pH <7.35) — NIV INDICATED", id: "Gagal napas Tipe 2 — akut pada kronik (↑PaCO₂, pH <7.35) — NIV DIINDIKASIKAN" } },
+        { value: "severe_acidosis", label: { en: "Severe acidosis pH <7.25 ± impaired consciousness — NIV with very close monitoring or intubation", id: "Asidosis berat pH <7.25 ± gangguan kesadaran — NIV dengan monitor sangat ketat atau intubasi" } },
+        { value: "pending", label: { en: "Pending", id: "Belum keluar" } }
+      ]
+    },
+    {
+      id: "risk_factors",
+      question: { en: "Risk factors / comorbidities (select all that apply)", id: "Faktor risiko / komorbiditas (pilih semua yang sesuai)" },
+      type: "multi-select",
+      options: [
+        { value: "frequent_exac", label: { en: "≥2 exacerbations or ≥1 hospitalization in past year", id: "≥2 eksaserbasi atau ≥1 rawat inap dalam 1 tahun terakhir" } },
+        { value: "pseudo_risk", label: { en: "Pseudomonas risk (recent broad-spectrum antibiotic, bronchiectasis, prior Pseudomonas, FEV₁ <30%)", id: "Risiko Pseudomonas (antibiotik spektrum luas baru, bronkiektasis, riwayat Pseudomonas, FEV₁ <30%)" } },
+        { value: "ltot", label: { en: "On long-term oxygen therapy (LTOT)", id: "Dengan terapi oksigen jangka panjang (LTOT)" } },
+        { value: "cardiac_disease", label: { en: "Significant cardiac disease (CAD, HF, AF)", id: "Penyakit jantung signifikan (PJK, HF, AF)" } },
+        { value: "elderly_frail", label: { en: "Frailty / age >75", id: "Frailty / usia >75" } },
+        NONE_OPT
+      ]
+    }
+  ],
+  getRecommendation: function(a, ctx) {
+    const risks = Array.isArray(a.risk_factors) ? a.risk_factors : [];
+    const needsNIV = a.abg === "type2_acute" || a.abg === "severe_acidosis";
+    const severe = a.severity === "severe_no_failure" || a.severity === "severe_ARF" || a.severity === "life_threat";
+
+    const flags = [];
+    if (a.abg === "type2_acute") flags.push({ en: "Acute respiratory acidosis (Type 2 RF, pH <7.35) — NIV (BiPAP) is the intervention of choice. Reduces mortality, intubation rates, length of stay (Cochrane).", id: "Asidosis respiratorik akut (Gagal napas Tipe 2, pH <7.35) — NIV (BiPAP) adalah intervensi pilihan. Menurunkan mortalitas, tingkat intubasi, lama rawat (Cochrane)." });
+    if (a.abg === "severe_acidosis") flags.push({ en: "pH <7.25 — NIV failure rate higher. Initiate NIV with arterial line and senior critical care input; have intubation kit ready.", id: "pH <7.25 — tingkat kegagalan NIV lebih tinggi. Mulai NIV dengan jalur arteri dan input critical care senior; siapkan kit intubasi." });
+    if (a.severity === "life_threat") flags.push({ en: "Life-threatening AECOPD — ICU admission. NIV trial if no contraindications; intubation if NIV fails or impaired consciousness/agitation.", id: "AECOPD mengancam nyawa — admisi ICU. Uji NIV jika tidak ada kontraindikasi; intubasi jika NIV gagal atau gangguan kesadaran/agitasi." });
+    if (a.trigger === "pe_concern") flags.push({ en: "PE suspicion in AECOPD — D-dimer / CTPA; AECOPD patients have elevated PE prevalence (~25% in unexplained worsening).", id: "Dugaan PE pada AECOPD — D-dimer / CTPA; pasien AECOPD memiliki prevalensi PE tinggi (~25% pada perburukan tidak jelas)." });
+    if (risks.includes("pseudo_risk")) flags.push({ en: "Pseudomonas risk — choose anti-pseudomonal antibiotic (piperacillin-tazobactam, ceftazidime, or levofloxacin 750 mg) and obtain sputum culture.", id: "Risiko Pseudomonas — pilih antibiotik anti-pseudomonal (piperasilin-tazobaktam, ceftazidim, atau levofloksasin 750 mg) dan ambil kultur sputum." });
+    flags.push({ en: "Controlled oxygen ONLY — target SpO₂ 88–92% (in known CO₂ retainer). High-flow uncontrolled O₂ → worsens hypercapnia (loss of hypoxic drive + Haldane + V/Q mismatch).", id: "Oksigen terkontrol SAJA — target SpO₂ 88–92% (pada CO₂ retainer diketahui). O₂ tinggi tak terkontrol → perburuk hiperkapnia (hilang hypoxic drive + Haldane + ketidakcocokan V/Q)." });
+
+    let dx;
+    if (a.severity === "life_threat") dx = { en: "Life-Threatening AECOPD", id: "AECOPD Mengancam Nyawa" };
+    else if (a.severity === "severe_ARF") dx = { en: "Severe AECOPD with Acute Respiratory Failure", id: "AECOPD Berat dengan Gagal Napas Akut" };
+    else if (a.severity === "severe_no_failure") dx = { en: "Severe AECOPD without Respiratory Failure", id: "AECOPD Berat tanpa Gagal Napas" };
+    else if (a.severity === "moderate") dx = { en: "Moderate AECOPD", id: "AECOPD Sedang" };
+    else dx = { en: "Mild AECOPD", id: "AECOPD Ringan" };
+
+    const sub = a.trigger === "bacterial" ? { en: "Likely bacterial trigger — Anthonisen criteria met", id: "Pemicu bakterial mungkin — kriteria Anthonisen terpenuhi" }
+              : a.trigger === "viral" ? { en: "Likely viral / inflammatory trigger", id: "Pemicu viral / inflamasi mungkin" }
+              : a.trigger === "pe_concern" ? { en: "Investigate PE concurrently", id: "Selidiki PE secara bersamaan" }
+              : { en: "Trigger under investigation", id: "Pemicu dalam investigasi" };
+
+    const immediate = [
+      { en: "Cardiac monitor, SpO₂, NIBP q5–15 min", id: "Monitor jantung, SpO₂, NIBP q5–15 menit" },
+      { en: "Controlled oxygen via Venturi mask 24–28% (or nasal cannula 1–2 L/min) — target SpO₂ 88–92%", id: "Oksigen terkontrol via masker Venturi 24–28% (atau nasal kanul 1–2 L/menit) — target SpO₂ 88–92%" },
+      { en: "ABG within 30 min of arrival (and 1 h after any oxygen change); repeat at 1, 4, 12 h or with deterioration", id: "AGD dalam 30 menit kedatangan (dan 1 jam setelah perubahan oksigen); ulangi pada 1, 4, 12 jam atau saat memburuk" },
+      needsNIV ? { en: "Initiate NIV (BiPAP) — IPAP 12–15 cm H₂O, EPAP 4–5, back-up rate 12–15; titrate IPAP up by 2 cm to reduce RR and ↑V_T; monitor synchrony, leak, comfort.", id: "Mulai NIV (BiPAP) — IPAP 12–15 cm H₂O, EPAP 4–5, back-up rate 12–15; titrasi IPAP naik 2 cm untuk turunkan RR dan ↑V_T; pantau sinkroni, kebocoran, kenyamanan." } : null,
+      a.severity === "life_threat" ? { en: "Intubation indications: NIV failure (no improvement / worsening pH at 1–2 h), GCS <10, ↑secretions unable to clear, hemodynamic instability, cardiac arrest.", id: "Indikasi intubasi: NIV gagal (tidak membaik / pH memburuk pada 1–2 jam), GCS <10, ↑sekret tidak dapat dibersihkan, instabilitas hemodinamik, henti jantung." } : null,
+      a.trigger === "pe_concern" ? { en: "If PE suspicion → D-dimer, CTPA. Anticoagulate empirically if delay AND no bleeding risk.", id: "Jika curiga PE → D-dimer, CTPA. Antikoagulasi empirik jika ada penundaan DAN tanpa risiko perdarahan." } : null
+    ].filter(Boolean);
+
+    const pharm = [];
+    pharm.push({ name: "Salbutamol", dose: "2.5–5 mg nebulized q20 min × 3, then q4–6h. Use air-driven nebulization (or O₂ <6 L/min) to avoid hyperoxia.", route: "Nebulized", timing: { en: "Short-acting bronchodilator — first-line", id: "Bronkodilator kerja singkat — lini pertama" }, ci: { en: "Tachyarrhythmia, severe hypokalemia", id: "Takiaritmia, hipokalemia berat" } });
+    pharm.push({ name: "Ipratropium bromide", dose: "500 mcg nebulized q4–6h (combine with salbutamol)", route: "Nebulized", timing: { en: "Add-on bronchodilator — standard of care in AECOPD", id: "Bronkodilator tambahan — standar pelayanan pada AECOPD" }, ci: { en: "Caution in glaucoma, BPH; protect eyes during nebulization", id: "Hati-hati pada glaukoma, BPH; lindungi mata saat nebulisasi" } });
+    pharm.push({ name: "Systemic corticosteroid", dose: "Prednisolone 40 mg PO daily × 5 days (REDUCE trial) — IV only if cannot tolerate oral", route: "PO (preferred) or IV", timing: { en: "Shortens recovery, reduces relapse. NO TAPER. IV hydrocortisone 100 mg q6h is alternative if NPO.", id: "Mempersingkat pemulihan, mengurangi relaps. TANPA TAPERING. IV hidrokortison 100 mg q6h alternatif jika NPO." }, ci: { en: "Active untreated infection (relative); diabetes (monitor glucose closely)", id: "Infeksi aktif belum terobati (relatif); diabetes (monitor glukosa ketat)" } });
+    if (a.trigger === "bacterial" || a.severity === "severe_ARF" || a.severity === "life_threat") {
+      const abxLine = risks.includes("pseudo_risk")
+        ? "Piperacillin-tazobactam 4.5 g IV q6h OR Ceftazidime 2 g IV q8h OR Levofloxacin 750 mg PO/IV daily (anti-pseudomonal)"
+        : "Amoxicillin-clavulanate 875/125 mg PO BID OR Doxycycline 100 mg PO BID OR Macrolide (azithromycin 500 mg day 1 then 250 mg × 4 d); duration 5–7 days";
+      pharm.push({ name: "Antibiotic", dose: abxLine, route: "PO / IV", timing: { en: "Indication: ≥2 Anthonisen features (esp. purulent sputum), mechanical ventilation, or severe exacerbation. Duration 5–7 d.", id: "Indikasi: ≥2 fitur Anthonisen (terutama sputum purulen), ventilasi mekanik, atau eksaserbasi berat. Durasi 5–7 hari." }, ci: { en: "Allergy; check local resistance; check QT for macrolide + fluoroquinolone", id: "Alergi; cek resistensi lokal; cek QT untuk makrolid + fluorokuinolon" } });
+    }
+    pharm.push({ name: "VTE prophylaxis", dose: "Enoxaparin 40 mg SC daily (or UFH 5000 U BID/TID)", route: "SC", timing: { en: "All hospitalized AECOPD without bleeding risk — high VTE risk in this population", id: "Semua AECOPD rawat inap tanpa risiko perdarahan — risiko VTE tinggi pada populasi ini" }, ci: { en: "Active major bleeding", id: "Perdarahan mayor aktif" } });
+    pharm.push({ name: "AVOID — Routine theophylline / methylxanthines", dose: "—", route: "—", timing: { en: "GOLD 2024: NOT recommended due to narrow therapeutic window and adverse effects (arrhythmia, seizure). Use only if other bronchodilators fail.", id: "GOLD 2024: TIDAK direkomendasikan karena jendela terapi sempit dan efek samping (aritmia, kejang). Gunakan hanya jika bronkodilator lain gagal." }, ci: "" });
+    pharm.push({ name: "AVOID — Sedatives without ventilation", dose: "—", route: "—", timing: { en: "Benzodiazepines and opioids suppress respiratory drive and may precipitate type 2 RF.", id: "Benzodiazepin dan opioid menekan respiratory drive dan dapat memicu gagal napas tipe 2." }, ci: { en: "Spontaneously breathing AECOPD", id: "AECOPD bernapas spontan" } });
+    pharm.push({ name: "Discharge controller therapy review (GOLD 2024)", dose: "Step up: LAMA/LABA combo OR LABA + ICS (if eosinophils ≥300) OR triple therapy (LABA+LAMA+ICS for frequent exacerbators with eos ≥100).", route: "Inhaled", timing: { en: "Optimize before discharge. Smoking cessation, pulmonary rehab referral, vaccinations (influenza, pneumococcal, COVID-19, RSV).", id: "Optimasi sebelum pulang. Berhenti merokok, rujukan rehab paru, vaksinasi (influenza, pneumokokus, COVID-19, RSV)." }, ci: "" });
+
+    const investigations = {
+      stat: [
+        { en: "ABG (mandatory in moderate–severe; pre- and post-O₂)", id: "AGD (wajib pada sedang–berat; sebelum dan sesudah O₂)" },
+        { en: "ECG (concurrent ischemia, AF, RVH)", id: "EKG (iskemia bersamaan, AF, RVH)" },
+        { en: "CXR (rule out pneumonia, pneumothorax, HF, mass)", id: "Foto toraks (singkirkan pneumonia, pneumotoraks, HF, massa)" },
+        { en: "CBC, electrolytes, glucose, urea/creatinine", id: "CBC, elektrolit, glukosa, urea/kreatinin" },
+        { en: "Troponin, BNP (concurrent ACS / HF — common in AECOPD)", id: "Troponin, BNP (SKA / HF bersamaan — sering pada AECOPD)" },
+        { en: "Sputum Gram stain & culture if purulent or Pseudomonas risk", id: "Gram & kultur sputum jika purulen atau risiko Pseudomonas" },
+        { en: "Respiratory viral PCR (influenza, RSV, SARS-CoV-2)", id: "PCR virus respirasi (influenza, RSV, SARS-CoV-2)" },
+        a.trigger === "pe_concern" ? { en: "D-dimer; CTPA if PE plausible", id: "D-dimer; CTPA jika PE memungkinkan" } : null,
+        a.trigger === "hf_concurrent" ? { en: "Bedside echo (LVEF, RV, IVC)", id: "Eko bedside (LVEF, RV, IVC)" } : null
+      ].filter(Boolean),
+      routine: [
+        { en: "Spirometry once recovered (FEV₁ to confirm GOLD stage)", id: "Spirometri saat pulih (FEV₁ untuk konfirmasi stadium GOLD)" },
+        { en: "Eosinophil count (guides ICS step-up)", id: "Hitung eosinofil (panduan step-up ICS)" },
+        { en: "Alpha-1 antitrypsin level (once in lifetime if <45 y or atypical)", id: "Kadar alpha-1 antitrypsin (sekali seumur hidup jika <45 thn atau atipikal)" },
+        { en: "Smoking cessation, pulmonary rehab referral", id: "Berhenti merokok, rujukan rehab paru" }
+      ]
+    };
+
+    let dispo;
+    if (a.severity === "life_threat") dispo = { en: "ICU — NIV or invasive ventilation", id: "ICU — NIV atau ventilasi invasif" };
+    else if (needsNIV || a.severity === "severe_ARF") dispo = { en: "HDU / step-down with NIV capability", id: "HDU / step-down dengan kemampuan NIV" };
+    else if (a.severity === "severe_no_failure") dispo = { en: "Respiratory ward with telemetry", id: "Bangsal respirasi dengan telemetri" };
+    else if (a.severity === "moderate") dispo = { en: "Admit short-stay vs structured outpatient care — depends on response, comorbidities, social support", id: "Rawat short-stay vs perawatan rawat jalan terstruktur — tergantung respons, komorbiditas, dukungan sosial" };
+    else dispo = { en: "Discharge with controller optimization, follow-up <1 week", id: "Pulang dengan optimasi pengontrol, follow-up <1 minggu" };
+
+    return {
+      diagnosis: dx, subtitle: sub, cautions: flags,
+      immediate, pharmacology: pharm,
+      investigations, disposition: dispo,
+      guideline: "GOLD 2024 (Global Initiative for COPD); ERS/ATS COPD Exacerbation Guidelines 2017; Rome 2018 severity"
+    };
+  }
+},
+
+
+/* ---------------------- ISCHEMIC STROKE ---------------------- */
+ischemic_stroke: {
+  id: "ischemic_stroke",
+  label: { en: "Acute Ischemic Stroke", id: "Stroke Iskemik Akut" },
+  icon: "🧠",
+  guideline: "AHA/ASA AIS 2019/2024 · ESO 2021/2023",
+  standalone: true,
+  steps: [
+    {
+      id: "lko",
+      question: { en: "Time of last known well (LKW) — onset of symptoms or last seen normal?", id: "Waktu terakhir diketahui sehat (LKW) — onset gejala atau terakhir terlihat normal?" },
+      hint: { en: "Drives treatment window. Wake-up stroke / unknown onset → MRI mismatch may still allow lysis.", id: "Menentukan jendela terapi. Wake-up stroke / onset tidak jelas → mismatch MRI mungkin masih membolehkan lisis." },
+      type: "single-select",
+      options: [
+        { value: "lt_45", label: { en: "<4.5 hours from LKW (IV thrombolysis window)", id: "<4,5 jam dari LKW (jendela trombolisis IV)" } },
+        { value: "lt_9_mismatch", label: { en: "4.5–9 hours with imaging mismatch (extended window per WAKE-UP / EXTEND)", id: "4,5–9 jam dengan mismatch imaging (jendela diperpanjang per WAKE-UP / EXTEND)" } },
+        { value: "lt_24_lvo", label: { en: "<24 hours AND suspected large vessel occlusion (LVO) — thrombectomy window per DAWN/DEFUSE-3", id: "<24 jam DAN dicurigai oklusi pembuluh besar (LVO) — jendela trombektomi per DAWN/DEFUSE-3" } },
+        { value: "gt_24", label: { en: ">24 hours from LKW", id: ">24 jam dari LKW" } },
+        { value: "wakeup", label: { en: "Wake-up stroke / unknown onset", id: "Wake-up stroke / onset tidak jelas" } }
+      ]
+    },
+    {
+      id: "nihss",
+      question: { en: "NIH Stroke Scale (NIHSS) total score?", id: "Skor NIH Stroke Scale (NIHSS) total?" },
+      hint: { en: "Range 0–42. <5 minor; 5–15 moderate; 16–20 moderate–severe; >20 severe. ≥6 typically supports thrombectomy if LVO.", id: "Rentang 0–42. <5 ringan; 5–15 sedang; 16–20 sedang–berat; >20 berat. ≥6 umumnya mendukung trombektomi jika LVO." },
+      type: "score-calculator",
+      scoreName: "NIHSS",
+      maxScore: 42,
+      components: [
+        { id: "loc", label: { en: "1a. Level of consciousness", id: "1a. Tingkat kesadaran" }, options: [
+          { value: 0, label: { en: "Alert (0)", id: "Sadar penuh (0)" } },
+          { value: 1, label: { en: "Drowsy / minor stimulation rouses (1)", id: "Mengantuk / bangun dengan stimulasi ringan (1)" } },
+          { value: 2, label: { en: "Stuporous / repeated stimulation (2)", id: "Stupor / stimulasi berulang (2)" } },
+          { value: 3, label: { en: "Coma / reflex response only (3)", id: "Koma / hanya respons refleks (3)" } }
+        ]},
+        { id: "loc_q", label: { en: "1b. LOC Questions (month, age) — 2 correct = 0", id: "1b. Pertanyaan LOC (bulan, usia) — 2 benar = 0" }, options: [
+          { value: 0, label: { en: "Both correct (0)", id: "Keduanya benar (0)" } },
+          { value: 1, label: { en: "One correct (1)", id: "Satu benar (1)" } },
+          { value: 2, label: { en: "Neither correct (2)", id: "Tidak ada benar (2)" } }
+        ]},
+        { id: "loc_c", label: { en: "1c. LOC Commands (open/close eyes, grip)", id: "1c. Perintah LOC (buka/tutup mata, genggam)" }, options: [
+          { value: 0, label: { en: "Both correct (0)", id: "Keduanya benar (0)" } },
+          { value: 1, label: { en: "One correct (1)", id: "Satu benar (1)" } },
+          { value: 2, label: { en: "Neither correct (2)", id: "Tidak ada benar (2)" } }
+        ]},
+        { id: "gaze", label: { en: "2. Best gaze (horizontal)", id: "2. Tatapan terbaik (horizontal)" }, options: [
+          { value: 0, label: { en: "Normal (0)", id: "Normal (0)" } },
+          { value: 1, label: { en: "Partial gaze palsy (1)", id: "Palsi tatapan parsial (1)" } },
+          { value: 2, label: { en: "Forced deviation / total palsy (2)", id: "Deviasi paksa / palsi total (2)" } }
+        ]},
+        { id: "vf", label: { en: "3. Visual fields", id: "3. Lapang pandang" }, options: [
+          { value: 0, label: { en: "No loss (0)", id: "Tidak ada kelainan (0)" } },
+          { value: 1, label: { en: "Partial hemianopia (1)", id: "Hemianopsia parsial (1)" } },
+          { value: 2, label: { en: "Complete hemianopia (2)", id: "Hemianopsia komplet (2)" } },
+          { value: 3, label: { en: "Bilateral hemianopia / cortical blindness (3)", id: "Hemianopsia bilateral / kebutaan korteks (3)" } }
+        ]},
+        { id: "face", label: { en: "4. Facial palsy", id: "4. Palsi wajah" }, options: [
+          { value: 0, label: { en: "Normal (0)", id: "Normal (0)" } },
+          { value: 1, label: { en: "Minor (1)", id: "Ringan (1)" } },
+          { value: 2, label: { en: "Partial (2)", id: "Parsial (2)" } },
+          { value: 3, label: { en: "Complete (3)", id: "Komplet (3)" } }
+        ]},
+        { id: "arm_l", label: { en: "5a. Left arm motor (10 sec)", id: "5a. Motorik lengan kiri (10 detik)" }, options: [
+          { value: 0, label: { en: "No drift (0)", id: "Tidak jatuh (0)" } },
+          { value: 1, label: { en: "Drift but doesn't hit bed (1)", id: "Jatuh tapi tidak ke tempat tidur (1)" } },
+          { value: 2, label: { en: "Some effort against gravity (2)", id: "Sedikit usaha melawan gravitasi (2)" } },
+          { value: 3, label: { en: "No effort against gravity (3)", id: "Tidak ada usaha melawan gravitasi (3)" } },
+          { value: 4, label: { en: "No movement (4)", id: "Tidak ada gerakan (4)" } }
+        ]},
+        { id: "arm_r", label: { en: "5b. Right arm motor (10 sec)", id: "5b. Motorik lengan kanan (10 detik)" }, options: [
+          { value: 0, label: { en: "No drift (0)", id: "Tidak jatuh (0)" } },
+          { value: 1, label: { en: "Drift (1)", id: "Jatuh (1)" } },
+          { value: 2, label: { en: "Some effort (2)", id: "Sedikit usaha (2)" } },
+          { value: 3, label: { en: "No effort vs gravity (3)", id: "Tidak ada usaha vs gravitasi (3)" } },
+          { value: 4, label: { en: "No movement (4)", id: "Tidak ada gerakan (4)" } }
+        ]},
+        { id: "leg_l", label: { en: "6a. Left leg motor (5 sec)", id: "6a. Motorik tungkai kiri (5 detik)" }, options: [
+          { value: 0, label: { en: "No drift (0)", id: "Tidak jatuh (0)" } },
+          { value: 1, label: { en: "Drift (1)", id: "Jatuh (1)" } },
+          { value: 2, label: { en: "Some effort (2)", id: "Sedikit usaha (2)" } },
+          { value: 3, label: { en: "No effort vs gravity (3)", id: "Tidak ada usaha vs gravitasi (3)" } },
+          { value: 4, label: { en: "No movement (4)", id: "Tidak ada gerakan (4)" } }
+        ]},
+        { id: "leg_r", label: { en: "6b. Right leg motor (5 sec)", id: "6b. Motorik tungkai kanan (5 detik)" }, options: [
+          { value: 0, label: { en: "No drift (0)", id: "Tidak jatuh (0)" } },
+          { value: 1, label: { en: "Drift (1)", id: "Jatuh (1)" } },
+          { value: 2, label: { en: "Some effort (2)", id: "Sedikit usaha (2)" } },
+          { value: 3, label: { en: "No effort vs gravity (3)", id: "Tidak ada usaha vs gravitasi (3)" } },
+          { value: 4, label: { en: "No movement (4)", id: "Tidak ada gerakan (4)" } }
+        ]},
+        { id: "ataxia", label: { en: "7. Limb ataxia", id: "7. Ataksia ekstremitas" }, options: [
+          { value: 0, label: { en: "Absent (0)", id: "Tidak ada (0)" } },
+          { value: 1, label: { en: "One limb (1)", id: "Satu ekstremitas (1)" } },
+          { value: 2, label: { en: "Two limbs (2)", id: "Dua ekstremitas (2)" } }
+        ]},
+        { id: "sensory", label: { en: "8. Sensory", id: "8. Sensorik" }, options: [
+          { value: 0, label: { en: "Normal (0)", id: "Normal (0)" } },
+          { value: 1, label: { en: "Mild–moderate loss (1)", id: "Penurunan ringan–sedang (1)" } },
+          { value: 2, label: { en: "Severe / total loss (2)", id: "Penurunan berat / total (2)" } }
+        ]},
+        { id: "language", label: { en: "9. Best language", id: "9. Bahasa terbaik" }, options: [
+          { value: 0, label: { en: "Normal (0)", id: "Normal (0)" } },
+          { value: 1, label: { en: "Mild–moderate aphasia (1)", id: "Afasia ringan–sedang (1)" } },
+          { value: 2, label: { en: "Severe aphasia (2)", id: "Afasia berat (2)" } },
+          { value: 3, label: { en: "Mute / global aphasia (3)", id: "Bisu / afasia global (3)" } }
+        ]},
+        { id: "dysarthria", label: { en: "10. Dysarthria", id: "10. Disartria" }, options: [
+          { value: 0, label: { en: "Normal (0)", id: "Normal (0)" } },
+          { value: 1, label: { en: "Mild–moderate (1)", id: "Ringan–sedang (1)" } },
+          { value: 2, label: { en: "Severe / unintelligible (2)", id: "Berat / tidak dapat dimengerti (2)" } }
+        ]},
+        { id: "neglect", label: { en: "11. Extinction & inattention (neglect)", id: "11. Ekstinksi & ketidakperhatian (neglect)" }, options: [
+          { value: 0, label: { en: "Normal (0)", id: "Normal (0)" } },
+          { value: 1, label: { en: "Mild (single modality) (1)", id: "Ringan (modalitas tunggal) (1)" } },
+          { value: 2, label: { en: "Severe (multiple modalities) (2)", id: "Berat (multi-modalitas) (2)" } }
+        ]}
+      ]
+    },
+    {
+      id: "lvo_signs",
+      question: { en: "Large vessel occlusion (LVO) clinical signs?", id: "Tanda klinis oklusi pembuluh besar (LVO)?" },
+      hint: { en: "NIHSS ≥6 with cortical signs (gaze deviation, aphasia, neglect) suggests LVO — needs CTA/MRA and thrombectomy evaluation.", id: "NIHSS ≥6 dengan tanda kortikal (deviasi tatapan, afasia, neglect) menunjukkan LVO — perlu CTA/MRA dan evaluasi trombektomi." },
+      type: "single-select",
+      options: [
+        { value: "high_suspicion", label: { en: "High suspicion (gaze deviation + arm weakness + aphasia/neglect; NIHSS ≥6) — CTA mandatory", id: "Curiga tinggi (deviasi tatapan + kelemahan lengan + afasia/neglect; NIHSS ≥6) — CTA wajib" } },
+        { value: "low_suspicion", label: { en: "Low suspicion (no cortical signs, NIHSS <6)", id: "Curiga rendah (tanpa tanda kortikal, NIHSS <6)" } },
+        { value: "confirmed", label: { en: "Confirmed LVO on CTA (ICA, M1, M2, basilar)", id: "LVO terkonfirmasi pada CTA (ICA, M1, M2, basilar)" } },
+        { value: "imaging_pending", label: { en: "Imaging pending", id: "Imaging belum keluar" } }
+      ]
+    },
+    {
+      id: "bp",
+      question: { en: "Initial blood pressure (highest of two readings)?", id: "Tekanan darah awal (tertinggi dari dua pembacaan)?" },
+      hint: { en: "Lysis requires BP <185/110. Permissive HTN to 220/120 if NOT lysed/thrombectomy candidate.", id: "Lisis memerlukan TD <185/110. HTN permisif hingga 220/120 jika BUKAN kandidat lisis/trombektomi." },
+      type: "single-select",
+      options: [
+        { value: "lt_185", label: { en: "<185/110 — within lysis threshold", id: "<185/110 — di bawah ambang lisis" } },
+        { value: "185_220", label: { en: "185–220 systolic — needs reduction if planning lysis/thrombectomy", id: "Sistolik 185–220 — perlu penurunan jika rencana lisis/trombektomi" } },
+        { value: "gt_220", label: { en: ">220 systolic OR >120 diastolic — treat regardless of lysis plan", id: "Sistolik >220 ATAU diastolik >120 — terapi tanpa memandang rencana lisis" } }
+      ]
+    },
+    {
+      id: "lysis_ci",
+      question: { en: "Thrombolysis contraindication checklist — select ALL that apply.", id: "Daftar kontraindikasi trombolisis — pilih SEMUA yang sesuai." },
+      hint: { en: "Any ABSOLUTE contraindication suppresses the lysis pathway; thrombectomy may still be feasible.", id: "Kontraindikasi ABSOLUT akan menghentikan alur lisis; trombektomi mungkin masih layak." },
+      type: "multi-select",
+      showIf: a => a.lko === "lt_45" || a.lko === "lt_9_mismatch" || a.lko === "wakeup",
+      options: [
+        { value: "abs_hemorrhage_ct", label: { en: "ABSOLUTE: hemorrhage on non-contrast CT (any ICH)", id: "ABSOLUT: perdarahan pada CT non-kontras (ICH apapun)" } },
+        { value: "abs_prior_ich", label: { en: "ABSOLUTE: history of any intracranial hemorrhage", id: "ABSOLUT: riwayat perdarahan intrakranial apapun" } },
+        { value: "abs_active_bleed", label: { en: "ABSOLUTE: active internal bleeding (GI bleed <21 d, urinary tract bleed)", id: "ABSOLUT: perdarahan internal aktif (GI bleed <21 hari, perdarahan saluran kemih)" } },
+        { value: "abs_severe_htn", label: { en: "ABSOLUTE: SBP >185 or DBP >110 despite treatment", id: "ABSOLUT: TDS >185 atau TDD >110 meski terapi" } },
+        { value: "abs_recent_surgery", label: { en: "ABSOLUTE: intracranial / spinal surgery, head trauma, prior stroke <3 months", id: "ABSOLUT: bedah intrakranial / spinal, trauma kepala, stroke sebelumnya <3 bulan" } },
+        { value: "abs_aortic_dissection", label: { en: "ABSOLUTE: suspected aortic dissection", id: "ABSOLUT: dicurigai diseksi aorta" } },
+        { value: "abs_endocarditis", label: { en: "ABSOLUTE: infective endocarditis", id: "ABSOLUT: endokarditis infektif" } },
+        { value: "abs_neoplasm_avm", label: { en: "ABSOLUTE: intracranial neoplasm or AVM (excluding small unruptured aneurysm)", id: "ABSOLUT: neoplasma intrakranial atau AVM (kecuali aneurisma kecil belum ruptur)" } },
+        { value: "abs_inr_high", label: { en: "ABSOLUTE: INR >1.7 OR PT >15 s OR aPTT elevated OR platelets <100k", id: "ABSOLUT: INR >1.7 ATAU PT >15 detik ATAU aPTT meningkat ATAU trombosit <100k" } },
+        { value: "abs_doac_recent", label: { en: "ABSOLUTE: DOAC use within 48 h (unless specific assay normal)", id: "ABSOLUT: penggunaan DOAC dalam 48 jam (kecuali asai spesifik normal)" } },
+        { value: "abs_lmwh_treat", label: { en: "ABSOLUTE: therapeutic LMWH within 24 h", id: "ABSOLUT: LMWH terapeutik dalam 24 jam" } },
+        { value: "abs_glucose", label: { en: "ABSOLUTE: glucose <50 mg/dL (correct and reassess)", id: "ABSOLUT: glukosa <50 mg/dL (koreksi dan nilai ulang)" } },
+        { value: "rel_minor", label: { en: "Relative: minor / rapidly improving deficits (NIHSS <4)", id: "Relatif: defisit minor / membaik cepat (NIHSS <4)" } },
+        { value: "rel_seizure", label: { en: "Relative: seizure at onset with post-ictal deficits", id: "Relatif: kejang saat onset dengan defisit postiktal" } },
+        { value: "rel_mi_recent", label: { en: "Relative: MI within 3 months", id: "Relatif: MI dalam 3 bulan" } },
+        { value: "rel_pregnancy", label: { en: "Relative: pregnancy", id: "Relatif: kehamilan" } },
+        NONE_OPT
+      ]
+    },
+    {
+      id: "comorbid",
+      question: { en: "Pre-existing conditions affecting decision (select all)", id: "Kondisi yang ada sebelumnya yang mempengaruhi keputusan (pilih semua)" },
+      type: "multi-select",
+      options: [
+        { value: "afib", label: { en: "Atrial fibrillation (cardioembolic source)", id: "Atrial fibrilasi (sumber kardioembolik)" } },
+        { value: "doac", label: { en: "On DOAC", id: "Dengan DOAC" } },
+        { value: "warfarin", label: { en: "On warfarin", id: "Dengan warfarin" } },
+        { value: "antiplatelet", label: { en: "On antiplatelet (aspirin / clopidogrel)", id: "Dengan antiplatelet (aspirin / klopidogrel)" } },
+        { value: "diabetic", label: { en: "Diabetes mellitus", id: "Diabetes melitus" } },
+        { value: "prior_stroke", label: { en: "Prior stroke", id: "Riwayat stroke" } },
+        NONE_OPT
+      ]
+    }
+  ],
+  getRecommendation: function(a, ctx) {
+    const ci = Array.isArray(a.lysis_ci) ? a.lysis_ci : [];
+    const comorbid = Array.isArray(a.comorbid) ? a.comorbid : [];
+    const hasAbsCI = ci.some(c => c.startsWith("abs_"));
+    const hasRelCI = ci.some(c => c.startsWith("rel_"));
+    const inLysisWindow = a.lko === "lt_45" || a.lko === "lt_9_mismatch" || a.lko === "wakeup";
+    const inThrombectomyWindow = a.lko === "lt_24_lvo" || a.lvo_signs === "confirmed" || a.lvo_signs === "high_suspicion";
+    const nihss = typeof a.nihss === "number" ? a.nihss : 0;
+
+    const flags = [];
+    if (hasAbsCI) flags.push({ en: "Absolute thrombolysis contraindication detected — IV lysis SUPPRESSED. Pursue thrombectomy if LVO confirmed.", id: "Kontraindikasi absolut trombolisis terdeteksi — lisis IV DIHENTIKAN. Lakukan trombektomi jika LVO terkonfirmasi." });
+    if (hasRelCI && !hasAbsCI) flags.push({ en: "Relative contraindication(s) — weigh expected benefit vs bleeding risk. Document discussion.", id: "Kontraindikasi relatif — timbang manfaat vs risiko perdarahan. Dokumentasikan diskusi." });
+    if (inThrombectomyWindow && a.lvo_signs !== "low_suspicion") flags.push({ en: "LVO candidate — mechanical thrombectomy considered up to 24 h post-LKW (DAWN/DEFUSE-3 with imaging mismatch). DO NOT delay IV lysis to await thrombectomy.", id: "Kandidat LVO — trombektomi mekanik dipertimbangkan hingga 24 jam pasca-LKW (DAWN/DEFUSE-3 dengan mismatch imaging). JANGAN tunda lisis IV menunggu trombektomi." });
+    if (a.bp === "gt_220") flags.push({ en: "BP >220/120 — lower by 15% in first 24 h (avoid precipitous drop). Labetalol 10–20 mg IV bolus repeated, or nicardipine 5–15 mg/h IV.", id: "TD >220/120 — turunkan 15% dalam 24 jam pertama (hindari penurunan curam). Labetalol 10–20 mg IV bolus berulang, atau nicardipine 5–15 mg/jam IV." });
+    if (a.bp === "185_220" && inLysisWindow && !hasAbsCI) flags.push({ en: "BP 185–220 — must reduce below 185/110 BEFORE lysis. Labetalol or nicardipine IV.", id: "TD 185–220 — harus turunkan di bawah 185/110 SEBELUM lisis. Labetalol atau nicardipine IV." });
+    if (ci.includes("abs_doac_recent")) flags.push({ en: "DOAC within 48 h — IV lysis usually contraindicated. Consider reversal (idarucizumab for dabigatran; andexanet/PCC for Xa inhibitors) if thrombectomy planned.", id: "DOAC dalam 48 jam — lisis IV umumnya kontraindikasi. Pertimbangkan reversal (idarucizumab untuk dabigatran; andexanet/PCC untuk Xa inhibitor) jika rencana trombektomi." });
+    if (ci.includes("abs_glucose")) flags.push({ en: "Hypoglycemia <50 — correct with dextrose and reassess; symptoms may resolve completely (stroke mimic).", id: "Hipoglikemia <50 — koreksi dengan dekstrosa dan nilai ulang; gejala mungkin sembuh total (mimik stroke)." });
+    if (nihss >= 25 && inLysisWindow) flags.push({ en: "Very severe deficit (NIHSS ≥25) — relative caution; benefit still present but bleeding risk higher.", id: "Defisit sangat berat (NIHSS ≥25) — hati-hati relatif; manfaat tetap ada tapi risiko perdarahan lebih tinggi." });
+    if (nihss < 5 && inLysisWindow) flags.push({ en: "Minor stroke (NIHSS <5) — lysis benefit modest; case-by-case decision. If disabling, treat.", id: "Stroke minor (NIHSS <5) — manfaat lisis sedang; keputusan kasus-per-kasus. Jika disabling, terapi." });
+
+    const dx = { en: "Acute Ischemic Stroke", id: "Stroke Iskemik Akut" };
+    const sub = `NIHSS ${nihss} · ${a.lko === "lt_45" ? (state.lang === "id" ? "<4,5 jam dari onset" : "<4.5 h from onset") : a.lko === "lt_24_lvo" ? (state.lang === "id" ? "<24 jam, kandidat LVO" : "<24 h, LVO candidate") : a.lko === "wakeup" ? (state.lang === "id" ? "Wake-up stroke" : "Wake-up stroke") : a.lko === "lt_9_mismatch" ? (state.lang === "id" ? "Jendela diperpanjang" : "Extended window") : (state.lang === "id" ? "Di luar jendela lisis" : "Outside lysis window")}`;
+
+    const immediate = [
+      { en: "Time-critical — stroke alert / code stroke; door-to-needle target ≤45–60 min, door-to-groin ≤90 min for thrombectomy", id: "Krisis waktu — stroke alert / code stroke; target door-to-needle ≤45–60 menit, door-to-groin ≤90 menit untuk trombektomi" },
+      { en: "ABCs; protect airway if GCS <8 or unable to handle secretions", id: "ABC; lindungi jalan napas jika GCS <8 atau tidak mampu menangani sekret" },
+      { en: "Two IV lines, cardiac monitor, SpO₂ — target ≥94% (avoid hyperoxia)", id: "Dua jalur IV, monitor jantung, SpO₂ — target ≥94% (hindari hiperoksia)" },
+      { en: "Glucose: keep 140–180 mg/dL; correct <60 immediately", id: "Glukosa: pertahankan 140–180 mg/dL; koreksi <60 segera" },
+      { en: "Temperature: treat fever >38°C (paracetamol)", id: "Suhu: terapi demam >38°C (paracetamol)" },
+      { en: "Non-contrast CT head IMMEDIATELY to exclude hemorrhage (target <25 min from arrival)", id: "CT kepala non-kontras SEGERA untuk singkirkan perdarahan (target <25 menit dari kedatangan)" },
+      { en: "If LVO suspected → CTA head/neck (and CT perfusion if extended window)", id: "Jika curiga LVO → CTA kepala/leher (dan CT perfusi jika jendela diperpanjang)" },
+      { en: "NPO until swallow assessment", id: "NPO sampai penilaian menelan" },
+      inLysisWindow && !hasAbsCI ? { en: "Prepare lytic — confirm weight, dose, BP <185/110, no ABSOLUTE CIs. Door-to-needle is the metric.", id: "Siapkan lytic — konfirmasi berat, dosis, TD <185/110, tanpa KI absolut. Door-to-needle adalah metrik." } : null,
+      inThrombectomyWindow ? { en: "Activate interventional neuroradiology; transfer to thrombectomy-capable center if not on-site (drip-and-ship if needed).", id: "Aktivasi neuroradiologi intervensi; rujuk ke pusat trombektomi jika tidak on-site (drip-and-ship jika perlu)." } : null
+    ].filter(Boolean);
+
+    const pharm = [];
+    if (inLysisWindow && !hasAbsCI) {
+      pharm.push({ name: "Alteplase (tPA) — IV thrombolysis", dose: "0.9 mg/kg (max 90 mg) — 10% bolus over 1 min, then 90% infusion over 60 min", route: "IV", timing: { en: "Door-to-needle ≤45–60 min. Effective <4.5 h; extended-window protocols (4.5–9 h or wake-up) require imaging mismatch.", id: "Door-to-needle ≤45–60 menit. Efektif <4,5 jam; protokol jendela diperpanjang (4,5–9 jam atau wake-up) memerlukan mismatch imaging." }, ci: { en: "See full lysis CI checklist", id: "Lihat checklist KI lisis lengkap" } });
+      pharm.push({ name: "Tenecteplase (alternative — increasingly preferred)", dose: "0.25 mg/kg IV single bolus (max 25 mg)", route: "IV bolus", timing: { en: "Single bolus simplifies workflow. Non-inferior to alteplase in EXTEND-IA TNK; preferred in many centers, particularly with LVO.", id: "Bolus tunggal menyederhanakan alur. Non-inferior dengan alteplase pada EXTEND-IA TNK; lebih disukai di banyak pusat, terutama dengan LVO." }, ci: { en: "Same as alteplase", id: "Sama dengan alteplase" } });
+    } else if (inLysisWindow && hasAbsCI) {
+      pharm.push({ name: "IV thrombolytic", dose: "—", route: "—", timing: { en: "SUPPRESSED — absolute contraindication. Proceed to thrombectomy evaluation if LVO suspected.", id: "DIHENTIKAN — kontraindikasi absolut. Lanjut ke evaluasi trombektomi jika curiga LVO." }, ci: "" });
+    }
+    if (inThrombectomyWindow) {
+      pharm.push({ name: "Mechanical thrombectomy", dose: "Stent retriever ± aspiration thrombectomy", route: "Endovascular", timing: { en: "Indicated for LVO (ICA, M1, basilar) within 6 h (clinical–core mismatch up to 24 h per DAWN/DEFUSE-3). Pre-stroke mRS 0–1 typically required.", id: "Diindikasikan untuk LVO (ICA, M1, basilar) dalam 6 jam (mismatch klinis–core hingga 24 jam per DAWN/DEFUSE-3). mRS pra-stroke 0–1 umumnya diperlukan." }, ci: { en: "Pre-stroke severe disability, very small core volume only", id: "Disabilitas berat pra-stroke, volume core sangat kecil saja" } });
+    }
+    if (a.bp === "185_220" || a.bp === "gt_220") {
+      pharm.push({ name: "Labetalol", dose: "10–20 mg IV bolus over 1–2 min, may repeat or double q10 min (max 300 mg); or infusion 2–8 mg/min", route: "IV", timing: { en: "First-line for stroke BP control. Avoid in severe asthma, bradycardia, decompensated HF.", id: "Lini pertama untuk kontrol TD stroke. Hindari pada asma berat, bradikardia, HF dekompensasi." }, ci: { en: "Severe asthma, 2°/3° AV block, decompensated HF", id: "Asma berat, blok AV 2°/3°, HF dekompensasi" } });
+      pharm.push({ name: "Nicardipine", dose: "5 mg/h IV; titrate by 2.5 mg/h q5–15 min (max 15 mg/h)", route: "IV infusion", timing: { en: "Alternative to labetalol; smoother BP control. Avoid in severe AS.", id: "Alternatif untuk labetalol; kontrol TD lebih halus. Hindari pada AS berat." }, ci: { en: "Severe aortic stenosis, advanced cardiomyopathy", id: "Stenosis aorta berat, kardiomiopati lanjut" } });
+    }
+    if (!inLysisWindow || hasAbsCI) {
+      pharm.push({ name: "Aspirin", dose: "160–325 mg PO (or via NGT)", route: "PO/NGT", timing: { en: "Within 24–48 h of stroke onset if NOT lysed. If lysed, hold for 24 h then start.", id: "Dalam 24–48 jam onset stroke jika TIDAK dilisis. Jika dilisis, tunda 24 jam lalu mulai." }, ci: { en: "Aspirin allergy, active bleeding", id: "Alergi aspirin, perdarahan aktif" } });
+    }
+    if (nihss <= 5 && !comorbid.includes("warfarin") && !comorbid.includes("doac")) {
+      pharm.push({ name: "DAPT (minor non-cardioembolic stroke)", dose: "Aspirin 81 mg + Clopidogrel 75 mg daily × 21–90 days (then aspirin alone)", route: "PO", timing: { en: "CHANCE/POINT/THALES: minor stroke (NIHSS ≤5) or high-risk TIA — start within 24 h. Avoid >90 days due to bleeding.", id: "CHANCE/POINT/THALES: stroke minor (NIHSS ≤5) atau TIA risiko tinggi — mulai dalam 24 jam. Hindari >90 hari karena risiko perdarahan." }, ci: { en: "Bleeding diathesis, lysis given, cardioembolic source", id: "Diatesis perdarahan, lisis diberikan, sumber kardioembolik" } });
+    }
+    if (comorbid.includes("afib")) {
+      pharm.push({ name: "Anticoagulation for AF (delayed)", dose: "DOAC (apixaban 5 mg BID / dabigatran 150 mg BID / rivaroxaban 20 mg daily / edoxaban 60 mg daily) OR warfarin (target INR 2–3)", route: "PO", timing: { en: "Start 1–14 days post-stroke depending on size (ELAN/OPTIMAS): small <1 d, medium 6–7 d, large 12–14 d. NOT before NCCT excludes hemorrhagic transformation.", id: "Mulai 1–14 hari pasca-stroke tergantung ukuran (ELAN/OPTIMAS): kecil <1 hari, sedang 6–7 hari, besar 12–14 hari. JANGAN sebelum NCCT singkirkan transformasi hemoragik." }, ci: { en: "Active bleeding, severe thrombocytopenia, hemorrhagic transformation", id: "Perdarahan aktif, trombositopenia berat, transformasi hemoragik" } });
+    }
+    pharm.push({ name: "Statin", dose: "Atorvastatin 80 mg PO daily (or rosuvastatin 20 mg)", route: "PO", timing: { en: "High-intensity statin from admission regardless of LDL", id: "Statin intensitas tinggi sejak admisi tanpa memandang LDL" }, ci: { en: "Active liver disease", id: "Penyakit hati aktif" } });
+    pharm.push({ name: "VTE prophylaxis", dose: "Enoxaparin 40 mg SC daily (start 24 h post-lysis); IPC pre-lysis or if anticoagulation contraindicated", route: "SC / mechanical", timing: { en: "All immobile stroke patients; choose mechanical if bleeding risk", id: "Semua pasien stroke imobil; pilih mekanik jika risiko perdarahan" }, ci: { en: "Active bleeding", id: "Perdarahan aktif" } });
+    pharm.push({ name: "AVOID — Aggressive BP reduction if not lysed", dose: "—", route: "—", timing: { en: "Permissive HTN up to 220/120 in non-lysed stroke (maintain cerebral perfusion in ischemic penumbra). Reduce by ≤15% only if needed.", id: "HTN permisif hingga 220/120 pada stroke tanpa lisis (jaga perfusi serebral pada penumbra iskemik). Turunkan ≤15% hanya jika perlu." }, ci: "" });
+
+    const investigations = {
+      stat: [
+        { en: "Non-contrast CT head (mandatory first)", id: "CT kepala non-kontras (wajib pertama)" },
+        { en: "CTA head & neck if LVO suspected", id: "CTA kepala & leher jika curiga LVO" },
+        { en: "CT perfusion or MR DWI/FLAIR for extended-window / wake-up assessment", id: "CT perfusi atau MR DWI/FLAIR untuk penilaian jendela diperpanjang / wake-up" },
+        { en: "Glucose (fingerstick + serum)", id: "Glukosa (fingerstick + serum)" },
+        { en: "CBC, BMP, INR, aPTT, type & cross", id: "CBC, BMP, INR, aPTT, type & cross" },
+        { en: "Troponin (concurrent ACS)", id: "Troponin (SKA bersamaan)" },
+        { en: "ECG (AF detection)", id: "EKG (deteksi AF)" },
+        { en: "Pregnancy test if applicable", id: "Tes kehamilan jika sesuai" }
+      ],
+      routine: [
+        { en: "Carotid duplex / MRA neck", id: "Duplex karotis / MRA leher" },
+        { en: "Echocardiogram (TTE, with bubble if cryptogenic in young patient)", id: "Ekokardiografi (TTE, dengan bubble jika kriptogenik pada pasien muda)" },
+        { en: "Telemetry / cardiac monitor ≥24 h for AF detection", id: "Telemetri / monitor jantung ≥24 jam untuk deteksi AF" },
+        { en: "HbA1c, lipid panel, TSH", id: "HbA1c, panel lipid, TSH" },
+        { en: "Hypercoagulable workup if cryptogenic and <55 y", id: "Workup hiperkoagulasi jika kriptogenik dan <55 thn" },
+        { en: "Swallow assessment before any oral intake", id: "Penilaian menelan sebelum asupan oral apapun" },
+        { en: "Early multidisciplinary rehab (PT/OT/SLP)", id: "Rehab multidisipliner awal (PT/OT/SLP)" }
+      ]
+    };
+
+    const dispo = (a.lvo_signs === "high_suspicion" || a.lvo_signs === "confirmed" || nihss >= 10 || a.severity === "life_threat")
+      ? { en: "Stroke unit / Neuro-ICU (post-thrombectomy / post-lysis 24 h)", id: "Stroke unit / Neuro-ICU (pasca-trombektomi / pasca-lisis 24 jam)" }
+      : { en: "Acute stroke unit (early rehab, monitoring, etiology workup)", id: "Stroke unit akut (rehab awal, monitor, workup etiologi)" };
+
+    return {
+      diagnosis: dx, subtitle: sub, cautions: flags,
+      immediate, pharmacology: pharm,
+      investigations, disposition: dispo,
+      guideline: "AHA/ASA Acute Ischemic Stroke 2019 + 2024 update; ESO 2021; DAWN/DEFUSE-3; EXTEND-IA TNK"
+    };
+  }
+},
+
+/* ---------------------- HEMORRHAGIC STROKE (ICH) ---------------------- */
+hemorrhagic_stroke: {
+  id: "hemorrhagic_stroke",
+  label: { en: "Hemorrhagic Stroke (ICH)", id: "Stroke Hemoragik (ICH)" },
+  icon: "🩸",
+  guideline: "AHA/ASA Spontaneous ICH 2022 · ESO ICH 2023",
+  standalone: true,
+  steps: [
+    {
+      id: "type",
+      question: { en: "Hemorrhage type on CT?", id: "Jenis perdarahan pada CT?" },
+      hint: { en: "Spontaneous ICH (deep / lobar) vs SAH (subarachnoid). Different management. This module focuses on parenchymal ICH; SAH needs aneurysm-focused care.", id: "ICH spontan (dalam / lobar) vs SAH (subarakhnoid). Tatalaksana berbeda. Modul ini fokus ICH parenkim; SAH memerlukan perawatan fokus aneurisma." },
+      type: "single-select",
+      options: [
+        { value: "deep_ich", label: { en: "Deep ICH (basal ganglia, thalamus) — hypertensive etiology likely", id: "ICH dalam (ganglia basal, talamus) — etiologi hipertensif mungkin" } },
+        { value: "lobar_ich", label: { en: "Lobar ICH — consider amyloid angiopathy, AVM, tumor", id: "ICH lobar — pertimbangkan angiopati amiloid, AVM, tumor" } },
+        { value: "cerebellar", label: { en: "Cerebellar hemorrhage — neurosurgical emergency if >3 cm or brainstem compression", id: "Perdarahan serebelar — emergensi bedah saraf jika >3 cm atau kompresi batang otak" } },
+        { value: "brainstem", label: { en: "Brainstem hemorrhage", id: "Perdarahan batang otak" } },
+        { value: "ivh_extension", label: { en: "ICH with intraventricular extension", id: "ICH dengan ekstensi intraventrikular" } },
+        { value: "sah", label: { en: "Subarachnoid hemorrhage (SAH) — different module needed; bridging recommendations below", id: "Perdarahan subarakhnoid (SAH) — perlu modul berbeda; rekomendasi bridging di bawah" } }
+      ]
+    },
+    {
+      id: "gcs",
+      question: { en: "Glasgow Coma Scale (GCS)?", id: "Skala Koma Glasgow (GCS)?" },
+      hint: { en: "≤8 → secure airway. Severity by GCS plus ICH score components.", id: "≤8 → amankan jalan napas. Derajat berdasarkan GCS plus komponen skor ICH." },
+      type: "score-calculator",
+      scoreName: "GCS",
+      maxScore: 15,
+      components: [
+        { id: "eye", label: { en: "Eye opening", id: "Buka mata" }, options: [
+          { value: 4, label: { en: "Spontaneous (4)", id: "Spontan (4)" } },
+          { value: 3, label: { en: "To voice (3)", id: "Saat dipanggil (3)" } },
+          { value: 2, label: { en: "To pain (2)", id: "Saat nyeri (2)" } },
+          { value: 1, label: { en: "None (1)", id: "Tidak ada (1)" } }
+        ]},
+        { id: "verbal", label: { en: "Verbal response", id: "Respons verbal" }, options: [
+          { value: 5, label: { en: "Oriented (5)", id: "Berorientasi (5)" } },
+          { value: 4, label: { en: "Confused (4)", id: "Bingung (4)" } },
+          { value: 3, label: { en: "Inappropriate words (3)", id: "Kata tidak sesuai (3)" } },
+          { value: 2, label: { en: "Incomprehensible sounds (2)", id: "Suara tidak dapat dimengerti (2)" } },
+          { value: 1, label: { en: "None / intubated (1)", id: "Tidak ada / terintubasi (1)" } }
+        ]},
+        { id: "motor", label: { en: "Motor response", id: "Respons motorik" }, options: [
+          { value: 6, label: { en: "Obeys commands (6)", id: "Mengikuti perintah (6)" } },
+          { value: 5, label: { en: "Localizes pain (5)", id: "Melokalisasi nyeri (5)" } },
+          { value: 4, label: { en: "Withdraws from pain (4)", id: "Menarik diri dari nyeri (4)" } },
+          { value: 3, label: { en: "Abnormal flexion / decorticate (3)", id: "Fleksi abnormal / dekortikasi (3)" } },
+          { value: 2, label: { en: "Abnormal extension / decerebrate (2)", id: "Ekstensi abnormal / deserebrasi (2)" } },
+          { value: 1, label: { en: "None (1)", id: "Tidak ada (1)" } }
+        ]}
+      ]
+    },
+    {
+      id: "volume",
+      question: { en: "Hematoma volume (ABC/2 method) — A × B × C / 2 cm³?", id: "Volume hematoma (metode ABC/2) — A × B × C / 2 cm³?" },
+      hint: { en: "A = largest diameter on slice; B = perpendicular diameter; C = number of slices × slice thickness. Volume drives ICH score and surgical decision.", id: "A = diameter terbesar; B = diameter tegak lurus; C = jumlah slice × ketebalan slice. Volume menentukan skor ICH dan keputusan bedah." },
+      type: "single-select",
+      options: [
+        { value: "lt_30", label: { en: "<30 cm³", id: "<30 cm³" } },
+        { value: "30_60", label: { en: "30–60 cm³", id: "30–60 cm³" } },
+        { value: "gt_60", label: { en: ">60 cm³", id: ">60 cm³" } }
+      ]
+    },
+    {
+      id: "bp",
+      question: { en: "Current systolic blood pressure?", id: "Tekanan darah sistolik saat ini?" },
+      hint: { en: "INTERACT-2 / ATACH-2: target SBP 130–140 within first hour if SBP 150–220 (safe). Aggressive lowering to <130 may harm (ATACH-2 secondary outcomes).", id: "INTERACT-2 / ATACH-2: target TDS 130–140 dalam 1 jam pertama jika TDS 150–220 (aman). Penurunan agresif <130 mungkin merugikan (hasil sekunder ATACH-2)." },
+      type: "numeric",
+      unit: "mmHg"
+    },
+    {
+      id: "anticoag_status",
+      question: { en: "Anticoagulant or antiplatelet use prior to bleed?", id: "Penggunaan antikoagulan atau antiplatelet sebelum perdarahan?" },
+      hint: { en: "Reversal is the single most time-sensitive intervention.", id: "Reversal adalah intervensi paling time-sensitive." },
+      type: "single-select",
+      options: [
+        { value: "none", label: { en: "None", id: "Tidak ada" } },
+        { value: "warfarin", label: { en: "Warfarin / vitamin K antagonist — reverse with 4F-PCC + vitamin K", id: "Warfarin / antagonis vitamin K — reversal dengan 4F-PCC + vitamin K" } },
+        { value: "dabigatran", label: { en: "Dabigatran — reverse with idarucizumab", id: "Dabigatran — reversal dengan idarucizumab" } },
+        { value: "xa_inhibitor", label: { en: "Apixaban / Rivaroxaban / Edoxaban — andexanet alfa OR 4F-PCC", id: "Apixaban / Rivaroxaban / Edoxaban — andexanet alfa ATAU 4F-PCC" } },
+        { value: "heparin", label: { en: "Heparin (UFH or LMWH) — protamine sulfate", id: "Heparin (UFH atau LMWH) — protamin sulfat" } },
+        { value: "antiplatelet", label: { en: "Antiplatelet (aspirin / clopidogrel) — platelet transfusion NOT recommended unless surgery (PATCH trial)", id: "Antiplatelet (aspirin / klopidogrel) — transfusi trombosit TIDAK direkomendasikan kecuali bedah (PATCH trial)" } },
+        { value: "thrombolytic", label: { en: "Recent thrombolytic — cryoprecipitate ± TXA", id: "Trombolitik baru — krioprecipitat ± TXA" } }
+      ]
+    },
+    {
+      id: "surgical_features",
+      question: { en: "Surgical consideration features (select all that apply)?", id: "Fitur untuk pertimbangan bedah (pilih semua yang sesuai)?" },
+      type: "multi-select",
+      options: [
+        { value: "cerebellar_3cm", label: { en: "Cerebellar hemorrhage >3 cm with brainstem compression / hydrocephalus (urgent decompression)", id: "Perdarahan serebelar >3 cm dengan kompresi batang otak / hidrosefalus (dekompresi urgen)" } },
+        { value: "lobar_superficial", label: { en: "Superficial lobar hematoma (1 cm of cortex) — MISTIE-III suggests minimally invasive evacuation reduces volume", id: "Hematoma lobar superfisial (1 cm dari korteks) — MISTIE-III sugesti evakuasi minimal invasif kurangi volume" } },
+        { value: "hydrocephalus", label: { en: "Hydrocephalus / IVH casting ventricles — EVD indication", id: "Hidrosefalus / IVH mengisi ventrikel — indikasi EVD" } },
+        { value: "deteriorating", label: { en: "Clinical deterioration with mass effect / midline shift", id: "Perburukan klinis dengan efek massa / pergeseran midline" } },
+        { value: "raised_icp", label: { en: "Clinical signs of raised ICP (Cushing reflex, anisocoria, posturing)", id: "Tanda klinis TIK meningkat (refleks Cushing, anisokoria, posturing)" } },
+        NONE_OPT
+      ]
+    }
+  ],
+  getRecommendation: function(a, ctx) {
+    const gcs = typeof a.gcs === "number" ? a.gcs : 15;
+    const surgical = Array.isArray(a.surgical_features) ? a.surgical_features : [];
+    const bp = typeof a.bp === "number" ? a.bp : 0;
+
+    const flags = [];
+    if (gcs <= 8) flags.push({ en: "GCS ≤8 — secure airway. RSI with neuroprotective induction (etomidate / ketamine), avoid hypotension and hypoxia which worsen outcomes.", id: "GCS ≤8 — amankan jalan napas. RSI dengan induksi neuroprotektif (etomidate / ketamin), hindari hipotensi dan hipoksia yang memperburuk hasil." });
+    if (a.type === "cerebellar" || surgical.includes("cerebellar_3cm")) flags.push({ en: "Cerebellar hemorrhage >3 cm or brainstem compression — IMMEDIATE neurosurgical consult for decompressive surgery. EVD may be needed for hydrocephalus.", id: "Perdarahan serebelar >3 cm atau kompresi batang otak — konsul bedah saraf SEGERA untuk bedah dekompresi. EVD mungkin diperlukan untuk hidrosefalus." });
+    if (surgical.includes("hydrocephalus")) flags.push({ en: "Hydrocephalus / IVH — external ventricular drain indicated; intraventricular alteplase (CLEAR-III) reduces mortality but not functional outcome — selected cases only.", id: "Hidrosefalus / IVH — external ventricular drain diindikasikan; alteplase intraventrikular (CLEAR-III) menurunkan mortalitas tapi tidak hasil fungsional — kasus terpilih saja." });
+    if (surgical.includes("raised_icp")) flags.push({ en: "Signs of raised ICP — head of bed 30°, mannitol or hypertonic saline; AVOID prophylactic hyperventilation; URGENT neurosurgical input.", id: "Tanda TIK meningkat — kepala 30°, mannitol atau saline hipertonik; HINDARI hiperventilasi profilaksis; input bedah saraf URGEN." });
+    if (a.anticoag_status === "warfarin") flags.push({ en: "Warfarin reversal: 4F-PCC 25–50 U/kg IV (weight-based, INR-dependent) + Vitamin K 10 mg IV slow. Recheck INR at 30 min and 6 h.", id: "Reversal warfarin: 4F-PCC 25–50 U/kg IV (berbasis berat, tergantung INR) + Vitamin K 10 mg IV lambat. Cek ulang INR pada 30 menit dan 6 jam." });
+    if (a.anticoag_status === "dabigatran") flags.push({ en: "Dabigatran reversal: idarucizumab 5 g IV (two 2.5 g doses ≤15 min apart). If unavailable, 4F-PCC 50 U/kg + hemodialysis if life-threatening.", id: "Reversal dabigatran: idarucizumab 5 g IV (dua dosis 2,5 g ≤15 menit terpisah). Jika tidak tersedia, 4F-PCC 50 U/kg + hemodialisis jika mengancam nyawa." });
+    if (a.anticoag_status === "xa_inhibitor") flags.push({ en: "Xa inhibitor reversal: andexanet alfa per protocol (low/high dose based on last dose, time). If unavailable: 4F-PCC 50 U/kg IV.", id: "Reversal inhibitor Xa: andexanet alfa per protokol (dosis rendah/tinggi berdasar dosis terakhir, waktu). Jika tidak tersedia: 4F-PCC 50 U/kg IV." });
+    if (a.anticoag_status === "antiplatelet") flags.push({ en: "Antiplatelet — platelet transfusion is NOT routinely recommended (PATCH 2016 — increased death/dependency). Exception: planned neurosurgery.", id: "Antiplatelet — transfusi trombosit TIDAK rutin direkomendasikan (PATCH 2016 — peningkatan kematian/ketergantungan). Pengecualian: rencana bedah saraf." });
+    if (a.type === "sah") flags.push({ en: "SAH — different module needed. Critical: CTA for aneurysm, nimodipine 60 mg PO q4h × 21 d for vasospasm prevention, neurosurgery for clipping/coiling.", id: "SAH — perlu modul berbeda. Penting: CTA untuk aneurisma, nimodipine 60 mg PO q4h × 21 hari untuk pencegahan vasospasme, bedah saraf untuk clipping/coiling." });
+    if (a.volume === "gt_60" && gcs <= 8) flags.push({ en: "Large ICH (>60 cm³) + GCS ≤8 — predicted 30-d mortality >90% (ICH score 5). Discuss goals of care with family.", id: "ICH besar (>60 cm³) + GCS ≤8 — mortalitas 30 hari diprediksi >90% (skor ICH 5). Diskusikan tujuan perawatan dengan keluarga." });
+
+    const dx = { en: "Spontaneous Intracerebral Hemorrhage", id: "Perdarahan Intraserebral Spontan" };
+    const sub = `GCS ${gcs} · ${a.volume === "gt_60" ? ">60 cm³" : a.volume === "30_60" ? "30–60 cm³" : "<30 cm³"} · ${a.type === "deep_ich" ? (state.lang === "id" ? "Dalam" : "Deep") : a.type === "lobar_ich" ? (state.lang === "id" ? "Lobar" : "Lobar") : a.type === "cerebellar" ? (state.lang === "id" ? "Serebelar" : "Cerebellar") : a.type === "brainstem" ? (state.lang === "id" ? "Batang otak" : "Brainstem") : a.type === "ivh_extension" ? (state.lang === "id" ? "Dengan IVH" : "With IVH") : "SAH"}`;
+
+    const immediate = [
+      { en: "ABCs; airway protection for GCS ≤8 (RSI with etomidate or ketamine, avoid succinylcholine if ↑ICP suspected)", id: "ABC; lindungi jalan napas jika GCS ≤8 (RSI dengan etomidate atau ketamin, hindari suksinilkolin jika curiga ↑TIK)" },
+      { en: "Head of bed 30°, neck midline (avoid jugular venous obstruction)", id: "Kepala tempat tidur 30°, leher di tengah (hindari obstruksi vena jugularis)" },
+      { en: "Two large-bore IVs, arterial line, continuous cardiac/SpO₂/NIBP monitoring", id: "Dua jalur IV besar, jalur arteri, monitor jantung/SpO₂/NIBP kontinu" },
+      { en: "BP target: SBP 130–140 within 1 h if presenting SBP 150–220 (INTERACT-2). AVOID SBP <120.", id: "Target TD: TDS 130–140 dalam 1 jam jika TDS presentasi 150–220 (INTERACT-2). HINDARI TDS <120." },
+      { en: "Reverse anticoagulation IMMEDIATELY if present (single most impactful intervention)", id: "Reversal antikoagulasi SEGERA jika ada (intervensi paling berdampak)" },
+      { en: "Glucose control 140–180 mg/dL; avoid hypoglycemia; treat fever >38°C with paracetamol", id: "Kontrol glukosa 140–180 mg/dL; hindari hipoglikemia; terapi demam >38°C dengan paracetamol" },
+      { en: "Repeat CT at 6–24 h to assess hematoma expansion (occurs in 30–40% in first 6 h)", id: "CT ulang pada 6–24 jam untuk nilai ekspansi hematoma (terjadi pada 30–40% dalam 6 jam pertama)" },
+      { en: "Urgent neurosurgical consult for: cerebellar >3 cm, IVH/hydrocephalus, deteriorating consciousness, superficial lobar with deteriorating course", id: "Konsul bedah saraf urgen untuk: serebelar >3 cm, IVH/hidrosefalus, kesadaran memburuk, lobar superfisial dengan perburukan" },
+      gcs <= 12 || surgical.includes("raised_icp") ? { en: "ICP monitoring (EVD or parenchymal) if GCS ≤8 with mass effect or in select GCS 9–12 with deterioration", id: "Monitor TIK (EVD atau parenkim) jika GCS ≤8 dengan efek massa atau pada GCS 9–12 terpilih dengan perburukan" } : null
+    ].filter(Boolean);
+
+    const pharm = [];
+    if (bp >= 150) {
+      pharm.push({ name: "Nicardipine", dose: "5 mg/h IV; titrate by 2.5 mg/h q5–15 min (max 15 mg/h)", route: "IV infusion", timing: { en: "Smooth, titratable. Target SBP 130–140 within 1 h (INTERACT-2). Avoid drops below 120.", id: "Halus, titratable. Target TDS 130–140 dalam 1 jam (INTERACT-2). Hindari turun <120." }, ci: { en: "Severe aortic stenosis", id: "Stenosis aorta berat" } });
+      pharm.push({ name: "Labetalol", dose: "10–20 mg IV bolus q10 min (max 300 mg); or infusion 2–8 mg/min", route: "IV", timing: { en: "Alternative; useful if tachycardic", id: "Alternatif; berguna jika takikardi" }, ci: { en: "Severe asthma, 2°/3° AV block, decompensated HF, bradycardia", id: "Asma berat, blok AV 2°/3°, HF dekompensasi, bradikardia" } });
+    }
+    if (a.anticoag_status === "warfarin") {
+      pharm.push({ name: "4-Factor PCC (Kcentra / Beriplex)", dose: "INR 2–4: 25 U/kg; INR 4–6: 35 U/kg; INR >6: 50 U/kg (max 5000 U)", route: "IV", timing: { en: "First-line warfarin reversal. Onset <30 min; preferred over FFP (faster, smaller volume).", id: "Reversal warfarin lini pertama. Onset <30 menit; lebih disukai daripada FFP (lebih cepat, volume lebih kecil)." }, ci: { en: "DIC, HIT history", id: "DIC, riwayat HIT" } });
+      pharm.push({ name: "Vitamin K (Phytomenadione)", dose: "10 mg IV slow over 30 min (avoid anaphylaxis)", route: "IV", timing: { en: "Co-administer with PCC — vitamin K alone takes 12–24 h to normalize INR", id: "Berikan bersama PCC — vitamin K saja butuh 12–24 jam untuk normalisasi INR" }, ci: "" });
+    }
+    if (a.anticoag_status === "dabigatran") {
+      pharm.push({ name: "Idarucizumab (Praxbind)", dose: "5 g IV (two 2.5 g vials ≤15 min apart)", route: "IV", timing: { en: "Onset minutes. Specific dabigatran reversal antibody.", id: "Onset menit. Antibodi reversal spesifik dabigatran." }, ci: "" });
+    }
+    if (a.anticoag_status === "xa_inhibitor") {
+      pharm.push({ name: "Andexanet alfa (Andexxa)", dose: "Low dose: 400 mg bolus + 4 mg/min × 120 min (last dose <8 h ago AND ≤5 mg apixaban / ≤10 mg rivaroxaban); High dose: 800 mg + 8 mg/min", route: "IV", timing: { en: "Specific Xa inhibitor reversal. If unavailable, use 4F-PCC 50 U/kg.", id: "Reversal spesifik inhibitor Xa. Jika tidak tersedia, gunakan 4F-PCC 50 U/kg." }, ci: { en: "Limited availability, high cost", id: "Ketersediaan terbatas, biaya tinggi" } });
+    }
+    if (a.anticoag_status === "heparin") {
+      pharm.push({ name: "Protamine sulfate", dose: "UFH: 1 mg per 100 U heparin given in last 2–3 h (max 50 mg). LMWH: 1 mg per 1 mg enoxaparin if <8 h.", route: "IV", timing: { en: "Slow infusion (over 10 min) — rapid administration causes hypotension and anaphylaxis.", id: "Infus lambat (selama 10 menit) — pemberian cepat sebabkan hipotensi dan anafilaksis." }, ci: { en: "Fish allergy (relative)", id: "Alergi ikan (relatif)" } });
+    }
+    pharm.push({ name: "Anticonvulsant (only if seizure)", dose: "Levetiracetam 1000–3000 mg IV loading, then 500–1500 mg BID", route: "IV", timing: { en: "DO NOT use prophylactically (no benefit, possible harm). Treat clinical seizures only; consider continuous EEG if depressed consciousness disproportionate to imaging.", id: "JANGAN gunakan profilaksis (tanpa manfaat, kemungkinan bahaya). Terapi kejang klinis saja; pertimbangkan EEG kontinu jika kesadaran turun tidak sesuai dengan imaging." }, ci: "" });
+    if (surgical.includes("raised_icp")) {
+      pharm.push({ name: "Mannitol 20%", dose: "1–1.5 g/kg IV bolus over 10 min, then 0.25–0.5 g/kg q4–6h", route: "IV", timing: { en: "For acute ↑ICP. Monitor serum osm (target <320), Na, renal function. Hold if serum osm >320 or hypovolemia.", id: "Untuk ↑TIK akut. Monitor osm serum (target <320), Na, fungsi ginjal. Tunda jika osm serum >320 atau hipovolemia." }, ci: { en: "Hypovolemia, severe AKI, serum osm >320", id: "Hipovolemia, AKI berat, osm serum >320" } });
+      pharm.push({ name: "Hypertonic saline (3%)", dose: "250 mL IV bolus over 10 min; or 30 mL of 23.4% (central line)", route: "IV", timing: { en: "Alternative to mannitol; preferred if hypovolemic. Target Na 145–155 mmol/L.", id: "Alternatif untuk mannitol; lebih disukai jika hipovolemik. Target Na 145–155 mmol/L." }, ci: { en: "Severe hypernatremia, decompensated HF", id: "Hipernatremia berat, HF dekompensasi" } });
+    }
+    pharm.push({ name: "VTE prophylaxis", dose: "Mechanical (IPC) FIRST 1–4 days. Pharmacologic (enoxaparin 40 mg SC daily) once hematoma stable on repeat CT (typically day 1–4).", route: "Mechanical / SC", timing: { en: "Mechanical immediately; chemical prophylaxis after documented stability of hemorrhage", id: "Mekanik segera; profilaksis kimia setelah stabilitas perdarahan terdokumentasi" }, ci: { en: "Active bleeding / ongoing expansion", id: "Perdarahan aktif / ekspansi berlangsung" } });
+    pharm.push({ name: "AVOID — Routine corticosteroids", dose: "—", route: "—", timing: { en: "No role in spontaneous ICH (in contrast to vasogenic edema from tumor).", id: "Tidak ada peran pada ICH spontan (berbeda dengan edema vasogenik karena tumor)." }, ci: "" });
+    pharm.push({ name: "AVOID — Platelet transfusion in antiplatelet-associated ICH", dose: "—", route: "—", timing: { en: "PATCH 2016: platelet transfusion increased death/dependency. Exception: planned neurosurgical procedure.", id: "PATCH 2016: transfusi trombosit meningkatkan kematian/ketergantungan. Pengecualian: prosedur bedah saraf terencana." }, ci: "" });
+    pharm.push({ name: "AVOID — Prophylactic hyperventilation", dose: "—", route: "—", timing: { en: "Only as brief temporizing measure for imminent herniation. Sustained hyperventilation causes secondary ischemia.", id: "Hanya tindakan sementara singkat untuk herniasi mengancam. Hiperventilasi berkelanjutan sebabkan iskemia sekunder." }, ci: "" });
+
+    const investigations = {
+      stat: [
+        { en: "Non-contrast CT head (diagnosis + volume by ABC/2)", id: "CT kepala non-kontras (diagnosis + volume per ABC/2)" },
+        { en: "CT angiogram if lobar / SAH suspicion / young patient (find AVM, aneurysm, tumor)", id: "CT angiografi jika lobar / curiga SAH / pasien muda (cari AVM, aneurisma, tumor)" },
+        { en: "CBC, BMP, glucose, INR, aPTT, fibrinogen, type & cross", id: "CBC, BMP, glukosa, INR, aPTT, fibrinogen, type & cross" },
+        { en: "Toxicology if young patient (sympathomimetics)", id: "Toksikologi jika pasien muda (simpatomimetik)" },
+        { en: "ECG (often shows neurogenic T-wave changes, prolonged QT)", id: "EKG (sering tampak perubahan T neurogenik, QT memanjang)" },
+        { en: "Repeat NCCT at 6–24 h (or sooner if neurologic decline)", id: "NCCT ulang pada 6–24 jam (atau lebih cepat jika perburukan neurologis)" }
+      ],
+      routine: [
+        { en: "MRI / MRA / DSA for etiology workup (especially lobar)", id: "MRI / MRA / DSA untuk workup etiologi (terutama lobar)" },
+        { en: "TTE for embolic source if anticoagulation indicated long-term", id: "TTE untuk sumber embolik jika antikoagulasi diindikasikan jangka panjang" },
+        { en: "Lipid panel, HbA1c, hypercoagulable workup if cryptogenic", id: "Panel lipid, HbA1c, workup hiperkoagulasi jika kriptogenik" },
+        { en: "Swallow assessment before any oral intake", id: "Penilaian menelan sebelum asupan oral apapun" },
+        { en: "Early multidisciplinary rehabilitation", id: "Rehabilitasi multidisipliner awal" }
+      ]
+    };
+
+    const dispo = (gcs <= 8 || a.volume === "gt_60" || a.type === "cerebellar" || a.type === "brainstem" || surgical.length > 0)
+      ? { en: "Neuro-ICU (with neurosurgery on-call)", id: "Neuro-ICU (dengan bedah saraf on-call)" }
+      : { en: "Stroke unit / HDU with neuro-monitoring", id: "Stroke unit / HDU dengan monitor neuro" };
+
+    return {
+      diagnosis: dx, subtitle: sub, cautions: flags,
+      immediate, pharmacology: pharm,
+      investigations, disposition: dispo,
+      guideline: "AHA/ASA Spontaneous ICH 2022; ESO ICH 2023; INTERACT-2; ATACH-2; MISTIE-III"
+    };
+  }
+},
+
+/* ---------------------- TRAUMATIC BRAIN INJURY ---------------------- */
+tbi: {
+  id: "tbi",
+  label: { en: "Traumatic Brain Injury", id: "Cedera Otak Traumatik" },
+  icon: "🪖",
+  guideline: "BTF 4th ed · CRASH-3 · Brain Trauma Foundation 2016",
+  standalone: true,
+  steps: [
+    {
+      id: "gcs",
+      question: { en: "Glasgow Coma Scale (best post-resuscitation)?", id: "Skala Koma Glasgow (terbaik pasca-resusitasi)?" },
+      hint: { en: "Severe ≤8 (intubate); moderate 9–12; mild 13–15. Use best score after airway/BP optimized.", id: "Berat ≤8 (intubasi); sedang 9–12; ringan 13–15. Gunakan skor terbaik setelah jalan napas/TD dioptimasi." },
+      type: "score-calculator",
+      scoreName: "GCS",
+      maxScore: 15,
+      components: [
+        { id: "eye", label: { en: "Eye opening", id: "Buka mata" }, options: [
+          { value: 4, label: { en: "Spontaneous (4)", id: "Spontan (4)" } },
+          { value: 3, label: { en: "To voice (3)", id: "Saat dipanggil (3)" } },
+          { value: 2, label: { en: "To pain (2)", id: "Saat nyeri (2)" } },
+          { value: 1, label: { en: "None (1)", id: "Tidak ada (1)" } }
+        ]},
+        { id: "verbal", label: { en: "Verbal response", id: "Respons verbal" }, options: [
+          { value: 5, label: { en: "Oriented (5)", id: "Berorientasi (5)" } },
+          { value: 4, label: { en: "Confused (4)", id: "Bingung (4)" } },
+          { value: 3, label: { en: "Inappropriate words (3)", id: "Kata tidak sesuai (3)" } },
+          { value: 2, label: { en: "Incomprehensible sounds (2)", id: "Suara tidak dapat dimengerti (2)" } },
+          { value: 1, label: { en: "None / intubated (1)", id: "Tidak ada / terintubasi (1)" } }
+        ]},
+        { id: "motor", label: { en: "Motor response", id: "Respons motorik" }, options: [
+          { value: 6, label: { en: "Obeys commands (6)", id: "Mengikuti perintah (6)" } },
+          { value: 5, label: { en: "Localizes pain (5)", id: "Melokalisasi nyeri (5)" } },
+          { value: 4, label: { en: "Withdraws from pain (4)", id: "Menarik diri dari nyeri (4)" } },
+          { value: 3, label: { en: "Decorticate (3)", id: "Dekortikasi (3)" } },
+          { value: 2, label: { en: "Decerebrate (2)", id: "Deserebrasi (2)" } },
+          { value: 1, label: { en: "None (1)", id: "Tidak ada (1)" } }
+        ]}
+      ]
+    },
+    {
+      id: "mechanism",
+      question: { en: "Mechanism of injury?", id: "Mekanisme cedera?" },
+      type: "single-select",
+      options: [
+        { value: "blunt", label: { en: "Blunt (fall, MVC, assault)", id: "Tumpul (jatuh, KLL, kekerasan)" } },
+        { value: "penetrating", label: { en: "Penetrating (gunshot, stab) — neurosurgical emergency", id: "Penetrasi (luka tembak, tusuk) — emergensi bedah saraf" } },
+        { value: "blast", label: { en: "Blast / explosion", id: "Ledakan" } },
+        { value: "acceleration", label: { en: "High-velocity acceleration-deceleration (diffuse axonal injury suspected)", id: "Akselerasi-deselerasi kecepatan tinggi (curiga cedera akson difus)" } }
+      ]
+    },
+    {
+      id: "imaging",
+      question: { en: "CT head findings?", id: "Temuan CT kepala?" },
+      hint: { en: "Marshall classification / Rotterdam score guide prognosis. Surgical lesions need urgent intervention.", id: "Klasifikasi Marshall / skor Rotterdam memandu prognosis. Lesi bedah memerlukan intervensi urgen." },
+      type: "single-select",
+      options: [
+        { value: "normal", label: { en: "Normal", id: "Normal" } },
+        { value: "edh", label: { en: "Epidural hematoma (EDH) — lentiform, often arterial bleeding", id: "Hematoma epidural (EDH) — lentiform, sering perdarahan arteri" } },
+        { value: "sdh", label: { en: "Subdural hematoma (SDH) — crescent shape, venous", id: "Hematoma subdural (SDH) — bentuk bulan sabit, vena" } },
+        { value: "sah_traumatic", label: { en: "Traumatic SAH (tSAH)", id: "SAH traumatik (tSAH)" } },
+        { value: "contusion", label: { en: "Cerebral contusion / hemorrhagic contusion", id: "Kontusio serebral / kontusio hemoragik" } },
+        { value: "dai", label: { en: "Diffuse axonal injury (DAI) — small petechial hemorrhages at gray-white junction", id: "Cedera akson difus (DAI) — perdarahan petekial kecil di sambungan abu-putih" } },
+        { value: "skull_fx", label: { en: "Skull fracture (depressed / basilar / open)", id: "Fraktur tengkorak (depresi / basilar / terbuka)" } },
+        { value: "mass_effect", label: { en: "Significant mass effect / midline shift / herniation", id: "Efek massa signifikan / pergeseran midline / herniasi" } },
+        { value: "pending", label: { en: "Pending — clinical exam guides interim management", id: "Belum ada — pemeriksaan klinis memandu manajemen interim" } }
+      ]
+    },
+    {
+      id: "pupils",
+      question: { en: "Pupillary examination?", id: "Pemeriksaan pupil?" },
+      hint: { en: "Anisocoria or fixed dilated pupil → impending or established uncal herniation. Time-critical.", id: "Anisokoria atau pupil dilatasi tetap → herniasi unkal mengancam atau mapan. Krisis waktu." },
+      type: "single-select",
+      options: [
+        { value: "normal", label: { en: "Equal, reactive bilaterally", id: "Sama, reaktif bilateral" } },
+        { value: "unilateral_fixed", label: { en: "Unilateral dilated / fixed — uncal herniation", id: "Unilateral dilatasi / tetap — herniasi unkal" } },
+        { value: "bilateral_fixed", label: { en: "Bilateral fixed dilated — central / late herniation, very poor prognosis", id: "Bilateral dilatasi tetap — herniasi sentral / lanjut, prognosis sangat buruk" } },
+        { value: "small_reactive", label: { en: "Bilateral small reactive (pontine lesion or opioid effect)", id: "Bilateral kecil reaktif (lesi pontin atau efek opioid)" } }
+      ]
+    },
+    {
+      id: "ich_features",
+      question: { en: "Other concerning features (select all that apply)?", id: "Fitur mengkhawatirkan lain (pilih semua yang sesuai)?" },
+      type: "multi-select",
+      options: [
+        { value: "hypotension", label: { en: "Hypotension (SBP <110) — strongly worsens outcome; correct aggressively", id: "Hipotensi (TDS <110) — perburuk hasil signifikan; koreksi agresif" } },
+        { value: "hypoxia", label: { en: "Hypoxia (SpO₂ <90% at any time) — secondary brain injury", id: "Hipoksia (SpO₂ <90% kapan pun) — cedera otak sekunder" } },
+        { value: "seizure", label: { en: "Witnessed seizure / post-traumatic seizure", id: "Kejang tersaksikan / kejang pasca-trauma" } },
+        { value: "anticoagulated", label: { en: "On anticoagulant or antiplatelet", id: "Dengan antikoagulan atau antiplatelet" } },
+        { value: "polytrauma", label: { en: "Polytrauma (chest, abdomen, pelvis, long bones)", id: "Politrauma (dada, abdomen, pelvis, tulang panjang)" } },
+        { value: "csf_leak", label: { en: "CSF leak (otorrhea, rhinorrhea, basilar skull fx signs)", id: "Kebocoran CSF (otorea, rinorea, tanda fraktur basilar)" } },
+        { value: "elderly", label: { en: "Age ≥65 (worse outcomes; lower threshold for imaging and admission)", id: "Usia ≥65 (hasil lebih buruk; ambang lebih rendah untuk imaging dan admisi)" } },
+        NONE_OPT
+      ]
+    },
+    {
+      id: "time_from_injury",
+      question: { en: "Time elapsed from injury?", id: "Waktu sejak cedera?" },
+      hint: { en: "TXA reduces mortality in mild–moderate TBI if given <3 h of injury (CRASH-3).", id: "TXA mengurangi mortalitas pada TBI ringan–sedang jika diberi <3 jam sejak cedera (CRASH-3)." },
+      type: "single-select",
+      options: [
+        { value: "lt_3h", label: { en: "<3 hours (CRASH-3 TXA window)", id: "<3 jam (jendela TXA CRASH-3)" } },
+        { value: "gt_3h", label: { en: ">3 hours from injury", id: ">3 jam sejak cedera" } },
+        { value: "unknown", label: { en: "Unknown", id: "Tidak diketahui" } }
+      ]
+    }
+  ],
+  getRecommendation: function(a, ctx) {
+    const gcs = typeof a.gcs === "number" ? a.gcs : 15;
+    const features = Array.isArray(a.ich_features) ? a.ich_features : [];
+    const severe = gcs <= 8;
+    const moderate = gcs >= 9 && gcs <= 12;
+    const mild = gcs >= 13;
+
+    const flags = [];
+    if (severe) flags.push({ en: "SEVERE TBI (GCS ≤8) — secure airway with RSI, target SBP ≥110, SpO₂ ≥90%, MAP ≥80. Urgent NCCT and neurosurgical consult.", id: "TBI BERAT (GCS ≤8) — amankan jalan napas dengan RSI, target TDS ≥110, SpO₂ ≥90%, MAP ≥80. NCCT dan konsul bedah saraf urgen." });
+    if (a.pupils === "unilateral_fixed" || a.pupils === "bilateral_fixed") flags.push({ en: "PUPIL ABNORMALITY — impending or established herniation. Brief hyperventilation (PaCO₂ 30–35 only as bridge), hypertonic saline 30 mL of 3% bolus or mannitol 1 g/kg, neurosurgery NOW.", id: "ABNORMALITAS PUPIL — herniasi mengancam atau mapan. Hiperventilasi singkat (PaCO₂ 30–35 hanya sebagai bridging), salin hipertonik bolus 30 mL 3% atau mannitol 1 g/kg, bedah saraf SEKARANG." });
+    if (a.imaging === "edh") flags.push({ en: "EDH — neurosurgical emergency. Lucid interval is classic. Surgical evacuation indicated for volume >30 cm³ OR thickness >15 mm OR midline shift >5 mm OR GCS <9.", id: "EDH — emergensi bedah saraf. Lucid interval klasik. Evakuasi bedah jika volume >30 cm³ ATAU ketebalan >15 mm ATAU pergeseran midline >5 mm ATAU GCS <9." });
+    if (a.imaging === "sdh") flags.push({ en: "Acute SDH — surgical if thickness >10 mm, midline shift >5 mm, OR GCS deteriorating regardless of thickness.", id: "SDH akut — bedah jika ketebalan >10 mm, pergeseran midline >5 mm, ATAU GCS memburuk tanpa memandang ketebalan." });
+    if (a.imaging === "mass_effect") flags.push({ en: "Significant mass effect / midline shift — start osmotherapy, prepare for decompressive craniectomy. RESCUEicp showed mortality benefit but more disability.", id: "Efek massa signifikan / pergeseran midline — mulai osmoterapi, siapkan kraniektomi dekompresif. RESCUEicp menunjukkan manfaat mortalitas tapi disabilitas lebih banyak." });
+    if (a.imaging === "skull_fx") flags.push({ en: "Skull fracture: open or depressed → neurosurgery; basilar → admit, CSF leak precautions, NO NG tube (use OG), avoid nasal intubation.", id: "Fraktur tengkorak: terbuka atau depresi → bedah saraf; basilar → rawat, kewaspadaan kebocoran CSF, JANGAN NGT (gunakan OG), hindari intubasi nasal." });
+    if (a.mechanism === "penetrating") flags.push({ en: "Penetrating brain injury — emergent neurosurgical management, tetanus prophylaxis, broad-spectrum antibiotic (ceftriaxone + metronidazole), seizure prophylaxis indicated.", id: "Cedera otak penetrasi — manajemen bedah saraf emergensi, profilaksis tetanus, antibiotik spektrum luas (ceftriaxone + metronidazole), profilaksis kejang diindikasikan." });
+    if (features.includes("hypotension")) flags.push({ en: "Hypotension in TBI — SBP <110 even briefly doubles mortality. Resuscitate aggressively with crystalloid then blood; norepinephrine to maintain MAP.", id: "Hipotensi pada TBI — TDS <110 meski sebentar menggandakan mortalitas. Resusitasi agresif dengan kristaloid lalu darah; norepinefrin untuk pertahankan MAP." });
+    if (features.includes("hypoxia")) flags.push({ en: "Hypoxia even briefly — secondary brain injury. Maintain SpO₂ >90% (ideally >94%); intubate early if at risk.", id: "Hipoksia meski sebentar — cedera otak sekunder. Pertahankan SpO₂ >90% (idealnya >94%); intubasi awal jika berisiko." });
+    if (features.includes("anticoagulated")) flags.push({ en: "Anticoagulated TBI — reverse IMMEDIATELY. Warfarin → 4F-PCC + vit K. Dabigatran → idarucizumab. Xa inhibitor → andexanet or 4F-PCC. ICH expansion risk 3–5×.", id: "TBI dengan antikoagulan — reversal SEGERA. Warfarin → 4F-PCC + vit K. Dabigatran → idarucizumab. Inhibitor Xa → andexanet atau 4F-PCC. Risiko ekspansi ICH 3–5×." });
+    if (features.includes("csf_leak")) flags.push({ en: "CSF leak — no NG tube, no nasal intubation. Head of bed 30°. Most close spontaneously; persistent >7 d → neurosurgical repair.", id: "Kebocoran CSF — tanpa NGT, tanpa intubasi nasal. Kepala 30°. Sebagian besar tertutup spontan; persisten >7 hari → repair bedah saraf." });
+
+    let dx;
+    if (severe) dx = { en: "Severe Traumatic Brain Injury", id: "Cedera Otak Traumatik Berat" };
+    else if (moderate) dx = { en: "Moderate Traumatic Brain Injury", id: "Cedera Otak Traumatik Sedang" };
+    else dx = { en: "Mild Traumatic Brain Injury", id: "Cedera Otak Traumatik Ringan" };
+
+    let sub = `GCS ${gcs}`;
+    if (a.imaging && a.imaging !== "pending" && a.imaging !== "normal") {
+      const imgMap = { edh:{en:"EDH",id:"EDH"}, sdh:{en:"SDH",id:"SDH"}, sah_traumatic:{en:"tSAH",id:"tSAH"}, contusion:{en:"Contusion",id:"Kontusio"}, dai:{en:"DAI",id:"DAI"}, skull_fx:{en:"Skull fracture",id:"Fraktur tengkorak"}, mass_effect:{en:"Mass effect",id:"Efek massa"} };
+      sub += " · " + tx(imgMap[a.imaging] || { en: a.imaging, id: a.imaging });
+    }
+
+    const immediate = [
+      { en: "C-spine immobilization until cleared (collar, log roll, manual in-line stabilization)", id: "Imobilisasi C-spine sampai bersih (kolar, log roll, stabilisasi in-line manual)" },
+      severe ? { en: "Endotracheal intubation with RSI — etomidate 0.3 mg/kg or ketamine 1–2 mg/kg + rocuronium 1.2 mg/kg. AVOID succinylcholine if ↑ICP. Pre-oxygenate.", id: "Intubasi endotrakeal dengan RSI — etomidate 0,3 mg/kg atau ketamin 1–2 mg/kg + rokuronium 1,2 mg/kg. HINDARI suksinilkolin jika ↑TIK. Preoksigenasi." } : { en: "Airway monitoring; intubation if GCS drops, airway compromised, or imaging shows surgical lesion", id: "Monitor jalan napas; intubasi jika GCS turun, jalan napas terganggu, atau imaging tampak lesi bedah" },
+      { en: "Target SBP ≥110, MAP 80–90 (severe TBI); SpO₂ >90% (ideally >94%); PaCO₂ 35–40", id: "Target TDS ≥110, MAP 80–90 (TBI berat); SpO₂ >90% (idealnya >94%); PaCO₂ 35–40" },
+      { en: "Head of bed 30°, neck midline, avoid jugular venous obstruction (loose collar)", id: "Kepala tempat tidur 30°, leher di tengah, hindari obstruksi vena jugularis (kolar longgar)" },
+      { en: "Two large-bore IVs, arterial line if severe; resuscitate with crystalloid then blood (avoid hypotonic fluids — worsen cerebral edema)", id: "Dua jalur IV besar, jalur arteri jika berat; resusitasi dengan kristaloid lalu darah (hindari cairan hipotonik — perburuk edema serebral)" },
+      { en: "Glucose 140–180 mg/dL; treat fever; normothermia; avoid hypothermia (no benefit, possible harm in adults)", id: "Glukosa 140–180 mg/dL; terapi demam; normotermia; hindari hipotermia (tanpa manfaat, kemungkinan bahaya pada dewasa)" },
+      a.imaging !== "normal" && a.imaging !== "pending" ? { en: "Urgent neurosurgical consult for: EDH (any), SDH thickness >10 mm or shift >5 mm, contusion with deterioration, depressed/open skull fx, penetrating injury", id: "Konsul bedah saraf urgen untuk: EDH (apapun), SDH ketebalan >10 mm atau pergeseran >5 mm, kontusio dengan perburukan, fraktur tengkorak depresi/terbuka, cedera penetrasi" } : null,
+      severe ? { en: "ICP monitoring: external ventricular drain (EVD) preferred (allows CSF drainage); parenchymal monitor alternative. Target ICP <22 mmHg, CPP 60–70.", id: "Monitor TIK: external ventricular drain (EVD) lebih disukai (memungkinkan drainase CSF); monitor parenkim alternatif. Target TIK <22 mmHg, CPP 60–70." } : null,
+      { en: "Repeat NCCT at 6 h (or sooner with neuro decline). Hematoma expansion is common.", id: "NCCT ulang pada 6 jam (atau lebih cepat dengan perburukan neuro). Ekspansi hematoma sering." }
+    ].filter(Boolean);
+
+    const pharm = [];
+    if (a.time_from_injury === "lt_3h" && (mild || moderate) && a.imaging !== "normal") {
+      pharm.push({ name: "Tranexamic acid (TXA) — CRASH-3", dose: "1 g IV over 10 min, then 1 g IV over 8 h", route: "IV", timing: { en: "Within 3 h of injury, GCS 9–15 with ICH on CT — reduces head-injury-related death (CRASH-3 trial).", id: "Dalam 3 jam cedera, GCS 9–15 dengan ICH pada CT — mengurangi kematian terkait cedera kepala (uji CRASH-3)." }, ci: { en: "Severe GCS <9 (no benefit), >3 h post-injury, hypersensitivity", id: "GCS berat <9 (tanpa manfaat), >3 jam pasca-cedera, hipersensitivitas" } });
+    }
+    if (severe) {
+      pharm.push({ name: "Hypertonic saline 3% (preferred for ICP)", dose: "250 mL IV bolus over 10 min; or 23.4% 30 mL via central line", route: "IV", timing: { en: "First-line for raised ICP (BTF 2016). Target Na 145–155. Maintain euvolemia.", id: "Lini pertama untuk TIK meningkat (BTF 2016). Target Na 145–155. Pertahankan euvolemia." }, ci: { en: "Severe hypernatremia, decompensated HF", id: "Hipernatremia berat, HF dekompensasi" } });
+      pharm.push({ name: "Mannitol 20%", dose: "1–1.5 g/kg IV bolus over 10 min; maintenance 0.25–0.5 g/kg q4–6h", route: "IV", timing: { en: "Alternative osmotherapy. Monitor serum osm (target <320), Na, AKI. Hold if osm >320 or hypovolemic.", id: "Osmoterapi alternatif. Monitor osm serum (target <320), Na, AKI. Tunda jika osm >320 atau hipovolemik." }, ci: { en: "Hypovolemia, AKI, serum osm >320", id: "Hipovolemia, AKI, osm serum >320" } });
+      pharm.push({ name: "Sedation (intubated TBI)", dose: "Propofol 5–50 mcg/kg/min (caution PRIS in prolonged high dose); add fentanyl 0.5–2 mcg/kg/h", route: "IV infusion", timing: { en: "Reduces metabolic demand, ICP. Avoid benzodiazepines for prolonged sedation. Short-acting agents enable serial neuro exam.", id: "Mengurangi kebutuhan metabolik, TIK. Hindari benzodiazepin untuk sedasi berkepanjangan. Agen kerja singkat memungkinkan pemeriksaan neuro serial." }, ci: { en: "Hypotension, allergy to soy/egg (propofol)", id: "Hipotensi, alergi kedelai/telur (propofol)" } });
+      pharm.push({ name: "Norepinephrine (for MAP target)", dose: "0.05–0.5 mcg/kg/min, titrate to MAP 80–90 (CPP 60–70)", route: "IV infusion (central)", timing: { en: "If euvolemic and MAP inadequate. CPP = MAP − ICP; CPP <50 increases mortality.", id: "Jika euvolemik dan MAP tidak adekuat. CPP = MAP − TIK; CPP <50 meningkatkan mortalitas." }, ci: { en: "Severe tachyarrhythmia", id: "Takiaritmia berat" } });
+    }
+    if (a.mechanism === "penetrating" || features.includes("seizure")) {
+      pharm.push({ name: "Levetiracetam (seizure prophylaxis/treatment)", dose: "1000–1500 mg IV load, then 500–1500 mg BID × 7 days (prophylaxis); longer if seizure occurred", route: "IV / PO", timing: { en: "Prophylaxis × 7 d for penetrating injury, depressed skull fx, intracranial hematoma, seizure within 24 h. Levetiracetam = phenytoin efficacy, fewer side effects.", id: "Profilaksis × 7 hari untuk cedera penetrasi, fraktur tengkorak depresi, hematoma intrakranial, kejang dalam 24 jam. Levetiracetam = efikasi fenitoin, efek samping lebih sedikit." }, ci: { en: "Severe renal impairment (dose-adjust)", id: "Gangguan ginjal berat (sesuaikan dosis)" } });
+    }
+    if (a.mechanism === "penetrating") {
+      pharm.push({ name: "Antibiotics (penetrating TBI)", dose: "Ceftriaxone 2 g IV daily + Metronidazole 500 mg IV q8h × 7–14 days", route: "IV", timing: { en: "Broad-spectrum coverage including anaerobes. Adjust to culture.", id: "Cakupan spektrum luas termasuk anaerob. Sesuaikan dengan kultur." }, ci: "" });
+      pharm.push({ name: "Tetanus prophylaxis", dose: "Td booster ± TIG depending on history", route: "IM", timing: { en: "All penetrating brain injuries", id: "Semua cedera otak penetrasi" }, ci: "" });
+    }
+    if (features.includes("anticoagulated")) {
+      pharm.push({ name: "Anticoagulation reversal", dose: "Warfarin: 4F-PCC 25–50 U/kg + vit K 10 mg IV. Dabigatran: idarucizumab 5 g IV. Xa inhibitor: andexanet alfa OR 4F-PCC 50 U/kg. UFH/LMWH: protamine.", route: "IV", timing: { en: "URGENT — before further imaging if confirmed ICH; even before NCCT if high pretest probability and clinical deterioration.", id: "URGEN — sebelum imaging lanjut jika ICH terkonfirmasi; bahkan sebelum NCCT jika probabilitas pretest tinggi dan perburukan klinis." }, ci: { en: "DIC, HIT for some agents", id: "DIC, HIT untuk beberapa agen" } });
+    }
+    pharm.push({ name: "VTE prophylaxis", dose: "Mechanical (IPC) immediately. Pharmacologic (enoxaparin 40 mg SC daily) once hematoma stable on repeat imaging (typically 24–72 h after stability).", route: "Mechanical / SC", timing: { en: "TBI carries very high VTE risk. Balance bleeding risk; mechanical first, chemical after stability.", id: "TBI berisiko VTE sangat tinggi. Seimbangkan risiko perdarahan; mekanik dulu, kimia setelah stabil." }, ci: { en: "Active bleeding / ongoing expansion", id: "Perdarahan aktif / ekspansi berlangsung" } });
+    pharm.push({ name: "AVOID — Routine corticosteroids", dose: "—", route: "—", timing: { en: "CRASH trial: corticosteroids INCREASE mortality in TBI. Do not give.", id: "Uji CRASH: kortikosteroid MENINGKATKAN mortalitas pada TBI. Jangan berikan." }, ci: { en: "All TBI", id: "Semua TBI" } });
+    pharm.push({ name: "AVOID — Prophylactic hyperventilation", dose: "—", route: "—", timing: { en: "PaCO₂ <30 causes ischemia. Only use BRIEFLY (PaCO₂ 30–35) as bridge to definitive ICP management.", id: "PaCO₂ <30 menyebabkan iskemia. Gunakan hanya SINGKAT (PaCO₂ 30–35) sebagai bridging ke manajemen TIK definitif." }, ci: "" });
+    pharm.push({ name: "AVOID — Hypotonic IV fluids (D5W, 0.45% saline)", dose: "—", route: "—", timing: { en: "Free water worsens cerebral edema. Use isotonic crystalloid (0.9% saline) or hypertonic.", id: "Air bebas perburuk edema serebral. Gunakan kristaloid isotonik (saline 0,9%) atau hipertonik." }, ci: "" });
+
+    const investigations = {
+      stat: [
+        { en: "Non-contrast CT head (within 1 h for moderate/severe; Canadian CT Head Rule for mild)", id: "CT kepala non-kontras (dalam 1 jam untuk sedang/berat; Canadian CT Head Rule untuk ringan)" },
+        { en: "CT C-spine (almost always in moderate–severe)", id: "CT C-spine (hampir selalu pada sedang–berat)" },
+        { en: "FAST + chest/pelvis imaging if polytrauma", id: "FAST + imaging dada/pelvis jika politrauma" },
+        { en: "CBC, BMP, glucose, INR, aPTT, type & cross", id: "CBC, BMP, glukosa, INR, aPTT, type & cross" },
+        { en: "Ethanol level, urine toxicology", id: "Kadar etanol, toksikologi urin" },
+        { en: "ABG", id: "AGD" },
+        { en: "Repeat NCCT at 6 h or with neuro deterioration", id: "NCCT ulang pada 6 jam atau saat perburukan neuro" }
+      ],
+      routine: [
+        { en: "MRI brain (DAI, brainstem detail) — usually after stabilization", id: "MRI otak (DAI, detail batang otak) — biasanya setelah stabilisasi" },
+        { en: "TBI biomarkers (GFAP, UCH-L1) where available — may aid prognosis", id: "Biomarker TBI (GFAP, UCH-L1) jika tersedia — dapat membantu prognosis" },
+        { en: "EEG if seizure, prolonged coma, status epilepticus", id: "EEG jika kejang, koma berkepanjangan, status epileptikus" },
+        { en: "Audiology and ENT review if basilar skull fx", id: "Audiologi dan THT jika fraktur tengkorak basilar" },
+        { en: "Rehabilitation — physical, occupational, speech therapy", id: "Rehabilitasi — terapi fisik, okupasi, wicara" },
+        { en: "Mental health follow-up (post-concussion syndrome, PTSD)", id: "Follow-up kesehatan mental (sindrom paska-gegar, PTSD)" }
+      ]
+    };
+
+    const dispo = severe ? { en: "Neuro-ICU (with neurosurgery on-call, ICP monitoring capability)", id: "Neuro-ICU (dengan bedah saraf on-call, kemampuan monitor TIK)" }
+      : moderate ? { en: "HDU / neuro step-down with hourly neuro obs ≥24 h", id: "HDU / neuro step-down dengan observasi neuro per jam ≥24 jam" }
+      : (a.imaging === "normal" && features.length === 0 && !features.includes("elderly"))
+        ? { en: "Observation 4–6 h then discharge with head injury advice and reliable carer; return precautions", id: "Observasi 4–6 jam lalu pulang dengan instruksi cedera kepala dan pendamping; instruksi kembali" }
+        : { en: "Admit for observation; lower threshold if elderly, anticoagulated, polytrauma", id: "Rawat untuk observasi; ambang lebih rendah jika lansia, antikoagulan, politrauma" };
+
+    return {
+      diagnosis: dx, subtitle: sub, cautions: flags,
+      immediate, pharmacology: pharm,
+      investigations, disposition: dispo,
+      guideline: "Brain Trauma Foundation 4th ed; CRASH-3 (2019); BTF Severe TBI 2016; SIBICC consensus 2019"
+    };
+  }
+},
+
 
 }; // end DISEASES
 
@@ -2085,6 +3072,11 @@ function submitAnswer(value) {
   const step = steps[state.stepIndex];
   if (!step) return;
   if (step.type === "numeric") {
+    const n = parseFloat(value);
+    if (isNaN(n)) { alert(ui("enterNumeric")); return; }
+    value = n;
+  }
+  if (step.type === "score-calculator") {
     const n = parseFloat(value);
     if (isNaN(n)) { alert(ui("enterNumeric")); return; }
     value = n;
@@ -2226,6 +3218,7 @@ function renderStep() {
   else if (step.type === "multi-select") renderMultiSelect(step);
   else if (step.type === "numeric") renderNumeric(step);
   else if (step.type === "boolean") renderBoolean(step);
+  else if (step.type === "score-calculator") renderScoreCalculator(step);
 }
 
 function renderSingleSelect(step) {
@@ -2308,6 +3301,108 @@ function renderBoolean(step) {
     wrap.appendChild(b);
   });
   main.appendChild(wrap);
+}
+
+function renderScoreCalculator(step) {
+  // Two modes: 'total' (default numeric input) and 'components' (step-through calculator)
+  // Use a closure state — not persisted in app state since it's UI-local.
+  let mode = "total";
+  const componentValues = {}; // componentId -> numeric value
+
+  function rerender() {
+    // Remove anything we previously added (everything after the question + hint)
+    const fixedNodes = 3; // stepper bar, toolbar, question, [hint]. We need to clear from after that.
+    // Simpler: clear from main's last "options/numeric-row/score-calc" children and re-add.
+    main.querySelectorAll(".score-calc-block, .numeric-row, .actions, .score-calc-link").forEach(n => n.remove());
+
+    if (mode === "total") {
+      const row = el("div", "numeric-row");
+      const input = document.createElement("input");
+      input.type = "number"; input.className = "numeric-input"; input.inputMode = "decimal";
+      input.min = "0"; input.max = String(step.maxScore || 99);
+      input.placeholder = tx(UI.calculatorTotal) + (step.scoreName ? " (" + step.scoreName + ", 0–" + step.maxScore + ")" : "");
+      input.setAttribute("aria-label", tx(UI.calculatorTotal));
+      row.appendChild(input);
+      main.appendChild(row);
+      input.addEventListener("keydown", e => { if (e.key === "Enter") submitAnswer(input.value); });
+
+      const link = el("button", "score-calc-link", tx(UI.calculateLink));
+      link.type = "button";
+      link.addEventListener("click", () => { mode = "components"; rerender(); });
+      main.appendChild(link);
+
+      const acts = el("div", "actions");
+      acts.appendChild(btnEl(ui("continueBtn"), "btn btn-primary", () => submitAnswer(input.value)));
+      main.appendChild(acts);
+      setTimeout(() => input.focus(), 50);
+    } else {
+      // Components mode
+      const block = el("div", "score-calc-block");
+
+      // Header / running total
+      const header = el("div", "score-calc-header");
+      const title = el("div", "score-calc-title",
+        tx(UI.calculatorTitle) + " — " + (step.scoreName || "") + " (0–" + step.maxScore + ")");
+      header.appendChild(title);
+      const totalDisplay = el("div", "score-calc-total", tx(UI.calculatorTotal) + ": 0 / " + step.maxScore);
+      header.appendChild(totalDisplay);
+      block.appendChild(header);
+
+      // Back link
+      const back = el("button", "score-calc-link", tx(UI.calculatorBack));
+      back.type = "button";
+      back.addEventListener("click", () => { mode = "total"; rerender(); });
+      block.appendChild(back);
+
+      function recalcTotal() {
+        let t = 0;
+        Object.values(componentValues).forEach(v => { if (typeof v === "number") t += v; });
+        totalDisplay.textContent = tx(UI.calculatorTotal) + ": " + t + " / " + step.maxScore;
+        return t;
+      }
+
+      // Component groups
+      (step.components || []).forEach(comp => {
+        const group = el("div", "score-calc-group");
+        group.appendChild(el("div", "score-calc-comp-label", tx(comp.label)));
+        const optsWrap = el("div", "score-calc-options");
+        comp.options.forEach(opt => {
+          const b = document.createElement("button");
+          b.className = "score-calc-opt"; b.type = "button";
+          b.textContent = tx(opt.label);
+          b.addEventListener("click", () => {
+            componentValues[comp.id] = opt.value;
+            optsWrap.querySelectorAll(".score-calc-opt").forEach(o => o.classList.remove("selected"));
+            b.classList.add("selected");
+            recalcTotal();
+          });
+          // Restore selection if user comes back to this view
+          if (componentValues[comp.id] === opt.value) b.classList.add("selected");
+          optsWrap.appendChild(b);
+        });
+        group.appendChild(optsWrap);
+        block.appendChild(group);
+      });
+
+      // Use score button
+      const useActs = el("div", "actions");
+      useActs.appendChild(btnEl(tx(UI.calculatorUse), "btn btn-primary", () => {
+        const t = recalcTotal();
+        // Require all components answered
+        const missing = (step.components || []).some(c => typeof componentValues[c.id] !== "number");
+        if (missing) {
+          alert(tx({ en: "Please score every component before continuing.", id: "Mohon skor setiap komponen sebelum lanjut." }));
+          return;
+        }
+        submitAnswer(t);
+      }));
+      block.appendChild(useActs);
+
+      main.appendChild(block);
+      recalcTotal();
+    }
+  }
+  rerender();
 }
 
 /* ---------------- Recommendation render ---------------- */
@@ -2491,6 +3586,7 @@ function renderAlgorithm() {
         ? tx({ en: `Numeric input (${step.unit || "value"})`, id: `Input numerik (${step.unit || "nilai"})` })
         : step.type === "single-select" ? tx({ en: "Single choice — Options:", id: "Pilihan tunggal — Opsi:" })
         : step.type === "multi-select" ? tx({ en: "Multi-select — Options:", id: "Pilihan ganda — Opsi:" })
+        : step.type === "score-calculator" ? tx({ en: `Score calculator — ${step.scoreName || ""} (0–${step.maxScore || "?"}) — enter total or step through ${(step.components || []).length} components`, id: `Kalkulator skor — ${step.scoreName || ""} (0–${step.maxScore || "?"}) — masukkan total atau telusuri ${(step.components || []).length} komponen` })
         : tx({ en: "Boolean — Yes/No", id: "Boolean — Ya/Tidak" });
       const typeRow = el("div", "algo-branch"); typeRow.textContent = typeLabel;
       node.appendChild(typeRow);
